@@ -37,9 +37,9 @@ jobs:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -65,9 +65,9 @@ jobs:
           echo "deck contains $slides slides"
           test "$slides" -ge 30 || { echo "deck looks truncated"; exit 1; }
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v7
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: website/_site
 
@@ -76,4 +76,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
