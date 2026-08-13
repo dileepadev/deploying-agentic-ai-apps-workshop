@@ -11,7 +11,7 @@ For a production app with heavy queries, a real Postgres driver (asyncpg,
 SQLAlchemy) is usually the better choice. The table design below doesn't change.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -82,7 +82,7 @@ async def update_run(run_id: str, **fields: Any) -> None:
     """Patch a run: status, result, error."""
     # PostgREST sends plain JSON, so SQL functions like now() aren't available
     # here — we send a real timestamp string instead.
-    fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    fields["updated_at"] = datetime.now(UTC).isoformat()
     _check(
         await _client.patch(
             "/runs",
