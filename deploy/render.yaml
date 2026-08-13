@@ -1,0 +1,49 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# You can create the service by hand in the dashboard instead; this file just
+# means the settings are in version control rather than in someone's memory.
+#
+# In the dashboard: New + -> Blueprint -> pick this repo.
+
+services:
+  - type: web
+    name: research-agent
+    runtime: python
+    plan: free
+    region: singapore # pick the region closest to your users
+
+    # Render's Python image doesn't ship uv, so install it first.
+    # `--frozen` means "use uv.lock exactly, don't re-resolve" — your deploy
+    # gets the versions you tested, not whatever is newest today.
+    buildCommand: pip install uv && uv sync --frozen
+
+    # `fastapi run` binds 0.0.0.0 by default — binding to localhost (127.0.0.1)
+    # inside a container instead means nothing outside can reach you, which
+    # shows up as a maddening "port scan timeout" in the deploy logs. It also
+    # reads the PORT env var automatically, but we pass --port explicitly so
+    # the command is self-explanatory without reading Render's docs.
+    startCommand: uv run fastapi run app/main.py --port $PORT
+
+    healthCheckPath: /health
+
+    envVars:
+      # sync: false  =>  "ask me for this value in the dashboard, and never
+      # store it in the repo". This is how secrets stay out of git.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # Not secret — safe to keep in the file.
+      #
+      # `gemini-flash-latest` is an alias Google keeps pointed at the current
+      # free Flash model, so this doesn't 404 when a model name is retired.
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
+      - key: MAX_AGENT_STEPS
+        value: "12"
+      # Replace with your real GitHub Pages origin before you go public.
+      - key: ALLOWED_ORIGINS
+        value: "*"
