@@ -1,0 +1,81 @@
+---
+/**
+ * The presentation deck — a full-bleed route, deliberately outside the docs
+ * shell.
+ *
+ * A deck owns the whole viewport and the arrow keys; wrapping it in a sidebar
+ * would make it worse to present from. It shares the site's design tokens, so
+ * it reads as the same product without behaving like a documentation page.
+ *
+ * The slide markup is injected with `set:html` rather than written inline.
+ * That is not laziness: the slides contain literal braces in code samples
+ * (`{"run_id": "abc"}`), which Astro would otherwise parse as JSX expressions
+ * and fail on. Injecting raw keeps the deck byte-identical to the standalone
+ * version in /slides/index.html.
+ */
+import deck from "../slides/deck.html?raw";
+import "../styles/tokens.css";
+import "../slides/slides.css";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deploying Agentic AI Applications — slides</title>
+    <meta
+      name="description"
+      content="Ship a multi-step AI agent on a 100% free stack — without it timing out."
+    />
+    <link rel="icon" href={`${base}/favicon.svg`} />
+  </head>
+
+  <body>
+    <Fragment set:html={deck} />
+
+    <!-- Way back to the workshop site. Fades with the deck's own controls and
+         never appears in print, so it can't intrude on a projected slide. -->
+    <a id="site-link" href={`${base}/`}>← Workshop site</a>
+
+    <script>
+      import "../slides/slides.js";
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  #site-link {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 42;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+  /* slides.js adds .awake to #controls on mouse movement; piggyback on it so
+     this link appears and disappears with the rest of the chrome. */
+  #controls.awake ~ #site-link,
+  #site-link:focus-visible {
+    opacity: 0.55;
+    pointer-events: auto;
+  }
+  #site-link:hover,
+  #site-link:focus-visible {
+    opacity: 1;
+    color: var(--accent);
+  }
+  @media print {
+    #site-link {
+      display: none !important;
+    }
+  }
+</style>

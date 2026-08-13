@@ -1,0 +1,162 @@
+/* =============================================================================
+   Starlight theming — maps the shared tokens onto Starlight's own variables so
+   the docs, the deck and the demo client read as one product.
+   ========================================================================== */
+
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Starlight's accent + grey scales, derived from the mint brand. */
+:root {
+  --sl-color-accent-low: #12291f;
+  --sl-color-accent: #2f9d74;
+  --sl-color-accent-high: #a9e5c5;
+
+  --sl-font: var(--wk-sans);
+  --sl-font-mono: var(--wk-mono);
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #d6efe3;
+  --sl-color-accent: var(--wk-mint-deep);
+  --sl-color-accent-high: #0a4433;
+
+  --sl-color-white: #0d1519;
+  --sl-color-gray-1: #16222a;
+  --sl-color-gray-2: #34474f;
+  --sl-color-gray-3: #5c7079;
+  --sl-color-gray-5: #dde5e8;
+  --sl-color-gray-6: #eef2f3;
+  --sl-color-gray-7: #f7f9f9;
+  --sl-color-black: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  --sl-color-black: #080c11;
+  --sl-color-gray-6: #101822;
+  --sl-color-gray-5: #16212c;
+  --sl-color-gray-4: #24333f;
+  --sl-color-gray-3: #64798f;
+  --sl-color-gray-2: #8ea3b6;
+  --sl-color-gray-1: #c3d2e0;
+  --sl-color-white: #eef4fb;
+}
+
+/* --- Build-tutorial progress ---------------------------------------------- */
+
+.stepbar {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 0 0 1.75rem;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.4rem;
+  background: var(--sl-color-gray-6);
+}
+
+.stepbar-label {
+  font-family: var(--wk-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sl-color-accent);
+  white-space: nowrap;
+}
+
+.stepbar-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--sl-color-gray-5);
+  overflow: hidden;
+}
+
+.stepbar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sl-color-accent);
+}
+
+.stepbar-done {
+  font-family: var(--wk-mono);
+  font-size: 0.7rem;
+  color: var(--sl-color-gray-3);
+  white-space: nowrap;
+}
+
+/* --- "Resume where you left off" ------------------------------------------ */
+
+.resume {
+  display: none;
+  margin: 0 0 1.4rem;
+  padding: 0.8rem 1rem;
+  border-left: 3px solid var(--sl-color-accent);
+  border-radius: 0 0.3rem 0.3rem 0;
+  background: var(--sl-color-gray-6);
+  font-size: 0.9rem;
+}
+.resume.show {
+  display: block;
+}
+
+/* --- "where this lives in the repo" pointer -------------------------------- */
+
+.inrepo {
+  font-size: 0.85rem;
+  color: var(--sl-color-gray-3);
+  border-left: 2px solid var(--sl-color-gray-5);
+  padding-left: 0.8rem;
+  margin: 1.25rem 0;
+  line-height: 1.7;
+}
+
+/* --- Open-the-deck button -------------------------------------------------- */
+
+.slides-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.2rem;
+  border-radius: 0.4rem;
+  background: var(--sl-color-accent);
+  color: var(--sl-color-black) !important;
+  font-weight: 700;
+  text-decoration: none !important;
+}
+.slides-cta:hover {
+  filter: brightness(1.08);
+}
+
+/* --- Mermaid --------------------------------------------------------------- */
+
+.mermaid-figure {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.4rem;
+  background: var(--sl-color-gray-6);
+  overflow-x: auto;
+}
+.mermaid-figure svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Home page hero tweak: the tagline shouldn't shout louder than the title. */
+.hero .tagline {
+  font-size: clamp(1rem, 2.2vw, 1.2rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

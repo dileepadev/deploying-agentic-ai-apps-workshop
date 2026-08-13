@@ -1,0 +1,72 @@
+/* =============================================================================
+   Design tokens — the single source of truth for the whole workshop site.
+
+   These are consumed by three surfaces that used to look like three projects:
+
+     * the docs        (Starlight maps its own variables onto these below)
+     * the slide deck  (/slides/ — a full-bleed route)
+     * the demo client (/demo/)
+
+   Palette comes from the deck's original identity: deep blue-black grounds with
+   a mint accent. Everything else is derived from it.
+   ========================================================================== */
+
+:root {
+  /* --- Brand ------------------------------------------------------------- */
+  --wk-mint: #7cd4a4;
+  --wk-mint-dim: #3f7d5f;
+  --wk-mint-deep: #12795a; /* accessible on light grounds */
+  --wk-blue: #7fb6f0;
+  --wk-blue-deep: #245f92;
+  --wk-warn: #f3bd6d;
+  --wk-warn-deep: #8a5a12;
+  --wk-err: #f28b8b;
+  --wk-err-deep: #a33636;
+  --wk-purple: #b79cf0;
+
+  /* --- Type -------------------------------------------------------------- */
+  --wk-mono: ui-monospace, "JetBrains Mono", "SF Mono", SFMono-Regular, Menlo,
+    Consolas, monospace;
+  --wk-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", sans-serif;
+
+  /* --- Light ground (default) -------------------------------------------- */
+  --wk-bg: #f7f9f9;
+  --wk-surface: #ffffff;
+  --wk-surface-2: #eef2f3;
+  --wk-line: #dde5e8;
+  --wk-ink: #0d1519;
+  --wk-ink-2: #34474f;
+  --wk-muted: #5c7079;
+  --wk-accent: var(--wk-mint-deep);
+  --wk-accent-soft: #e2f2ea;
+}
+
+/* --- Dark ground ---------------------------------------------------------- */
+/* Starlight stamps data-theme on <html>, so key off that and let the media
+   query cover the un-stamped "system" state. */
+:root[data-theme="dark"] {
+  --wk-bg: #080c11;
+  --wk-surface: #101822;
+  --wk-surface-2: #16212c;
+  --wk-line: #24333f;
+  --wk-ink: #eef4fb;
+  --wk-ink-2: #c3d2e0;
+  --wk-muted: #8ea3b6;
+  --wk-accent: var(--wk-mint);
+  --wk-accent-soft: #12291f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --wk-bg: #080c11;
+    --wk-surface: #101822;
+    --wk-surface-2: #16212c;
+    --wk-line: #24333f;
+    --wk-ink: #eef4fb;
+    --wk-ink-2: #c3d2e0;
+    --wk-muted: #8ea3b6;
+    --wk-accent: var(--wk-mint);
+    --wk-accent-soft: #12291f;
+  }
+}

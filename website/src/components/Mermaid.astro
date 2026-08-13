@@ -1,0 +1,89 @@
+---
+/**
+ * A Mermaid diagram.
+ *
+ * Rendered in the browser rather than at build time: the build-time route needs
+ * a headless browser (Playwright), which is a heavy dependency to carry for
+ * three diagrams. The client-side bundle is imported locally, not from a CDN,
+ * so the site stays self-contained and works offline.
+ */
+interface Props {
+  chart: string;
+}
+const { chart } = Astro.props;
+---
+
+<figure class="mermaid-figure" data-mermaid set:html={`<pre class="mermaid-src" hidden>${chart}</pre>`} />
+
+<script>
+  import mermaid from "mermaid";
+
+  // Mermaid can't read CSS custom properties, so pull the resolved values and
+  // hand it real colours. Re-run on theme change so diagrams follow the toggle.
+  function themeVars() {
+    const s = getComputedStyle(document.documentElement);
+    const v = (n: string, fallback: string) => s.getPropertyValue(n).trim() || fallback;
+    const dark =
+      document.documentElement.dataset.theme === "dark" ||
+      (!document.documentElement.dataset.theme &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+    return {
+      dark,
+      vars: {
+        background: v("--wk-surface", dark ? "#101822" : "#ffffff"),
+        primaryColor: v("--wk-surface-2", dark ? "#16212c" : "#eef2f3"),
+        primaryTextColor: v("--wk-ink", dark ? "#eef4fb" : "#0d1519"),
+        primaryBorderColor: v("--wk-accent", dark ? "#7cd4a4" : "#12795a"),
+        lineColor: v("--wk-muted", dark ? "#8ea3b6" : "#5c7079"),
+        secondaryColor: v("--wk-surface-2", dark ? "#16212c" : "#eef2f3"),
+        tertiaryColor: v("--wk-bg", dark ? "#080c11" : "#f7f9f9"),
+        fontFamily: v("--wk-sans", "system-ui, sans-serif"),
+        fontSize: "14px",
+      },
+    };
+  }
+
+  let counter = 0;
+
+  async function render() {
+    const figures = document.querySelectorAll<HTMLElement>("[data-mermaid]");
+    if (!figures.length) return;
+
+    const { dark, vars } = themeVars();
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: dark ? "dark" : "base",
+      themeVariables: vars,
+    });
+
+    for (const figure of figures) {
+      const source = figure.querySelector<HTMLElement>(".mermaid-src");
+      if (!source) continue;
+      // Keep the source around so a theme switch can re-render from scratch.
+      const definition = source.textContent ?? "";
+      try {
+        const { svg } = await mermaid.render(`mmd-${counter++}`, definition);
+        figure.querySelector(".mermaid-out")?.remove();
+        const holder = document.createElement("div");
+        holder.className = "mermaid-out";
+        holder.innerHTML = svg;
+        figure.append(holder);
+      } catch (error) {
+        // A broken diagram should not take the page down with it.
+        console.error("Mermaid failed to render a diagram:", error);
+        source.hidden = false;
+      }
+    }
+  }
+
+  render();
+  document.addEventListener("astro:after-swap", render);
+
+  // Starlight's theme toggle flips data-theme on <html>.
+  new MutationObserver(render).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+</script>

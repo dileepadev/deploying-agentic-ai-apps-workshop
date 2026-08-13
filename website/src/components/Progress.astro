@@ -1,0 +1,85 @@
+---
+/**
+ * Build-tutorial progress.
+ *
+ * Remembers the furthest step you've opened, in this browser only, so you can
+ * close the tab and come back next week without hunting for your place.
+ *
+ * No accounts, no server, no tracking — one number in localStorage.
+ */
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<script is:inline define:vars={{ base }}>
+  (function () {
+    "use strict";
+
+    var KEY = "workshop.build.furthest";
+    var TOTAL = 8;
+    var SLUGS = [
+      "01-setup",
+      "02-database",
+      "03-tools",
+      "04-manual-loop",
+      "05-framework",
+      "06-the-wrong-way",
+      "07-accept-and-poll",
+      "08-deploy",
+    ];
+
+    function read() {
+      try {
+        var n = parseInt(localStorage.getItem(KEY) || "0", 10);
+        return Number.isFinite(n) && n > 0 && n <= TOTAL ? n : 0;
+      } catch (e) {
+        return 0; // private browsing
+      }
+    }
+
+    function apply() {
+      var bar = document.querySelector(".stepbar[data-step]");
+      if (bar) {
+        var step = parseInt(bar.dataset.step, 10);
+        if (Number.isFinite(step) && step > read()) {
+          try {
+            localStorage.setItem(KEY, String(step));
+          } catch (e) {
+            /* the tutorial still works, it just won't remember */
+          }
+        }
+      }
+
+      var slot = document.querySelector("[data-resume]");
+      if (!slot) return;
+
+      var furthest = read();
+      if (furthest < 1) return;
+
+      var link = function (n) {
+        return base + "/build/" + SLUGS[n - 1] + "/";
+      };
+
+      if (furthest >= TOTAL) {
+        slot.innerHTML =
+          'You reached the end of the tutorial. <a href="' +
+          link(TOTAL) +
+          '">Revisit step ' +
+          TOTAL +
+          "</a>.";
+      } else {
+        slot.innerHTML =
+          "You got as far as <strong>step " +
+          furthest +
+          '</strong>. <a href="' +
+          link(furthest + 1) +
+          '">Continue with step ' +
+          (furthest + 1) +
+          "</a>.";
+      }
+      slot.classList.add("show");
+    }
+
+    apply();
+    document.addEventListener("astro:after-swap", apply);
+  })();
+</script>
