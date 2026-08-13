@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Research Agent — workshop demo</title>
+
+    <!--
+      One file. No npm, no build step, nothing to go wrong on demo day.
+
+      The entire client is three HTTP calls:
+        1. POST /runs          -> get a run_id back immediately
+        2. GET  /runs/{id}     -> every 1.5s, until status is done or error
+        3. render steps[]      -> that's the "Agent is thinking..." UI
+
+      Swap this for React, Vue or Flutter later. The three calls don't change.
+    -->
+
+    <style>
+      /* Palette shared with the workshop site and the slide deck, so all three
+         read as one product. Source of truth: website/src/styles/tokens.css */
+      :root {
+        color-scheme: dark;
+        --bg: #080c11;
+        --panel: #101822;
+        --panel-2: #16212c;
+        --line: #24333f;
+        --ink: #eef4fb;
+        --muted: #8ea3b6;
+        --accent: #7cd4a4;
+        --warn: #f3bd6d;
+        --err: #f28b8b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; padding: 2rem 1.25rem;
+        background: radial-gradient(1000px 600px at 15% -10%, #16202c, var(--bg));
+        color: var(--ink);
+        font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main { width: min(760px, 100%); margin: 0 auto; }
+      h1 { font-size: clamp(1.5rem, 4vw, 2rem); margin: 0 0 .25rem; letter-spacing: -.02em; }
+      .sub { color: var(--muted); margin: 0 0 1.75rem; font-size: .95rem; }
+
+      .panel {
+        background: var(--panel); border: 1px solid var(--line);
+        border-radius: 14px; padding: 1.1rem 1.2rem; margin-bottom: 1rem;
+      }
+      label { display: block; font-size: .8rem; text-transform: uppercase;
+              letter-spacing: .07em; color: var(--muted); margin-bottom: .4rem; }
+      input[type="text"], input[type="url"] {
+        width: 100%; padding: .7rem .85rem; border-radius: 9px;
+        border: 1px solid var(--line); background: var(--panel-2);
+        color: var(--ink); font: inherit; font-size: .95rem;
+      }
+      input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .row { display: flex; gap: .6rem; align-items: flex-end; flex-wrap: wrap; }
+      .row > div { flex: 1 1 240px; }
+      button {
+        padding: .7rem 1.3rem; border-radius: 9px; border: 0;
+        background: var(--accent); color: #06231a; font: inherit; font-weight: 650;
+        cursor: pointer; white-space: nowrap;
+      }
+      button:disabled { opacity: .45; cursor: not-allowed; }
+      .hint { font-size: .8rem; color: var(--muted); margin-top: .5rem; }
+
+      .naive {
+        display: flex; align-items: center; gap: .5rem;
+        margin-top: .9rem; font-size: .85rem; color: var(--warn);
+      }
+      .naive input { accent-color: var(--warn); width: 16px; height: 16px; }
+
+      .statusbar {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 1rem; font-size: .85rem; color: var(--muted); margin-bottom: .8rem;
+      }
+      .pill {
+        padding: .15rem .6rem; border-radius: 999px; border: 1px solid var(--line);
+        text-transform: uppercase; letter-spacing: .06em; font-size: .72rem;
+      }
+      .pill.running { color: var(--warn); border-color: var(--warn); }
+      .pill.done    { color: var(--accent); border-color: var(--accent); }
+      .pill.error   { color: var(--err); border-color: var(--err); }
+
+      ol.steps { list-style: none; margin: 0; padding: 0; }
+      ol.steps li {
+        padding: .65rem 0 .65rem 1.6rem; position: relative;
+        border-bottom: 1px dashed var(--line);
+      }
+      ol.steps li:last-child { border-bottom: 0; }
+      ol.steps li::before {
+        content: "✓"; position: absolute; left: 0; top: .65rem;
+        color: var(--accent); font-size: .9rem;
+      }
+      ol.steps li.active::before {
+        content: "◐"; color: var(--warn); animation: spin 1.1s linear infinite;
+      }
+      ol.steps li.failed::before { content: "✕"; color: var(--err); }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .step-label { font-weight: 600; }
+      .step-detail { color: var(--muted); font-size: .87rem; }
+
+      .result { white-space: pre-wrap; line-height: 1.7; }
+      .error-box {
+        border: 1px solid var(--err); color: var(--err);
+        border-radius: 9px; padding: .8rem 1rem; font-size: .9rem;
+        white-space: pre-wrap; word-break: break-word;
+      }
+      .hidden { display: none; }
+      footer { color: var(--muted); font-size: .8rem; text-align: center; margin-top: 2rem; }
+      code { background: var(--panel-2); padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <h1>Research Agent</h1>
+      <p class="sub">
+        A deliberately slow AI agent — and a UI that tells you what it's doing
+        while you wait. Workshop demo.
+      </p>
+
+      <!-- ---------- Backend URL ---------- -->
+      <section class="panel">
+        <label for="backend">Backend URL</label>
+        <input id="backend" type="url" placeholder="http://localhost:8000" />
+        <p class="hint">
+          Your own deployed API. Local: <code>http://localhost:8000</code>.
+          Deployed: your Render URL. Saved in this browser.
+        </p>
+      </section>
+
+      <!-- ---------- Ask ---------- -->
+      <section class="panel">
+        <div class="row">
+          <div>
+            <label for="query">Your question</label>
+            <input id="query" type="text" value="How do solar panels actually work?" />
+          </div>
+          <button id="ask">Ask the agent</button>
+        </div>
+
+        <label class="naive">
+          <input id="naive" type="checkbox" />
+          Naive mode — run the agent inside the request (this is the bug)
+        </label>
+      </section>
+
+      <!-- ---------- Live progress ---------- -->
+      <section class="panel hidden" id="progress">
+        <div class="statusbar">
+          <span><span class="pill" id="status">queued</span></span>
+          <span id="elapsed">0.0s</span>
+        </div>
+        <ol class="steps" id="steps"></ol>
+      </section>
+
+      <!-- ---------- Result ---------- -->
+      <section class="panel hidden" id="resultPanel">
+        <label>Answer</label>
+        <div class="result" id="result"></div>
+      </section>
+
+      <!-- ---------- Error ---------- -->
+      <section class="hidden" id="errorPanel">
+        <div class="error-box" id="error"></div>
+      </section>
+
+      <footer>
+        Source:
+        <a href="https://github.com/dileepadev/deploying-agentic-ai-apps-workshop">github.com/dileepadev/deploying-agentic-ai-apps-workshop</a>
+      </footer>
+    </main>
+
+    <script>
+      // ---------------------------------------------------------------------
+      //  Setup
+      // ---------------------------------------------------------------------
+      const $ = (id) => document.getElementById(id);
+      const POLL_MS = 1500; // every 1.5s. Fast enough to feel live, slow
+      //                       enough not to hammer a free-tier server.
+
+      const backendInput = $("backend");
+      backendInput.value =
+        localStorage.getItem("backendUrl") || "http://localhost:8000";
+      backendInput.addEventListener("input", () =>
+        localStorage.setItem("backendUrl", backendInput.value.trim())
+      );
+
+      const baseUrl = () => backendInput.value.trim().replace(/\/+$/, "");
+
+      let timerId = null;
+      let pollId = null;
+      let startedAt = 0;
+
+      // ---------------------------------------------------------------------
+      //  UI helpers
+      // ---------------------------------------------------------------------
+      function reset() {
+        clearInterval(timerId);
+        clearInterval(pollId);
+        $("steps").innerHTML = "";
+        $("result").textContent = "";
+        $("resultPanel").classList.add("hidden");
+        $("errorPanel").classList.add("hidden");
+        $("progress").classList.remove("hidden");
+        setStatus("queued");
+        startedAt = Date.now();
+        timerId = setInterval(() => {
+          $("elapsed").textContent =
+            ((Date.now() - startedAt) / 1000).toFixed(1) + "s";
+        }, 100);
+      }
+
+      function setStatus(status) {
+        const pill = $("status");
+        pill.textContent = status;
+        pill.className = "pill " + status;
+      }
+
+      function stop() {
+        clearInterval(timerId);
+        clearInterval(pollId);
+        $("ask").disabled = false;
+      }
+
+      function showError(message) {
+        $("error").textContent = message;
+        $("errorPanel").classList.remove("hidden");
+      }
+
+      // Render the steps[] array. The last step is "active" (spinning) while
+      // the run is still going — that's the whole trick behind the
+      // "Agent is searching..." feel.
+      function renderSteps(steps, status) {
+        $("steps").innerHTML = steps
+          .map((step, index) => {
+            const isLast = index === steps.length - 1;
+            let cls = "";
+            if (isLast && status === "running") cls = "active";
+            if (status === "error" && isLast) cls = "failed";
+            const detail = step.detail
+              ? `<div class="step-detail">${escapeHtml(step.detail)}</div>`
+              : "";
+            return `<li class="${cls}">
+                      <div class="step-label">${escapeHtml(step.label)}</div>
+                      ${detail}
+                    </li>`;
+          })
+          .join("");
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text ?? "";
+        return div.innerHTML;
+      }
+
+      // ---------------------------------------------------------------------
+      //  The right way: POST once, then poll
+      // ---------------------------------------------------------------------
+      async function askProperly(query) {
+        // 1. Hand over the job. Comes back in ~200ms with an id.
+        const response = await fetch(`${baseUrl()}/runs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+        if (!response.ok) throw new Error(await describe(response));
+        const { run_id } = await response.json();
+
+        // 2. Poll until the agent is finished.
+        pollId = setInterval(async () => {
+          try {
+            const poll = await fetch(`${baseUrl()}/runs/${run_id}`);
+            if (!poll.ok) throw new Error(await describe(poll));
+            const { run, steps } = await poll.json();
+
+            setStatus(run.status);
+            renderSteps(steps, run.status);
+
+            if (run.status === "done") {
+              stop();
+              $("result").textContent = run.result;
+              $("resultPanel").classList.remove("hidden");
+            } else if (run.status === "error") {
+              stop();
+              showError(run.error || "The run failed.");
+            }
+          } catch (err) {
+            stop();
+            showError(String(err.message || err));
+          }
+        }, POLL_MS);
+      }
+
+      // ---------------------------------------------------------------------
+      //  The wrong way: one request, hold the line, hope for the best
+      // ---------------------------------------------------------------------
+      async function askNaively(query) {
+        setStatus("running");
+        $("steps").innerHTML =
+          `<li class="active"><div class="step-label">Waiting for the server…</div>
+           <div class="step-detail">No progress updates are possible — the
+           request hasn't come back yet. This is exactly what your users see.</div></li>`;
+
+        const response = await fetch(`${baseUrl()}/runs/naive`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+        if (!response.ok) throw new Error(await describe(response));
+
+        const { run, steps } = await response.json();
+        stop();
+        setStatus(run.status);
+        renderSteps(steps, run.status);
+        if (run.status === "done") {
+          $("result").textContent = run.result;
+          $("resultPanel").classList.remove("hidden");
+        } else {
+          showError(run.error || "The run failed.");
+        }
+      }
+
+      async function describe(response) {
+        const body = await response.text();
+        return `HTTP ${response.status} — ${body.slice(0, 300)}`;
+      }
+
+      // ---------------------------------------------------------------------
+      //  Wire it up
+      // ---------------------------------------------------------------------
+      $("ask").addEventListener("click", async () => {
+        const query = $("query").value.trim();
+        if (query.length < 3) return;
+
+        $("ask").disabled = true;
+        reset();
+
+        try {
+          if ($("naive").checked) {
+            await askNaively(query);
+          } else {
+            await askProperly(query);
+          }
+        } catch (err) {
+          stop();
+          setStatus("error");
+          showError(
+            String(err.message || err) +
+              "\n\nCommon causes:\n" +
+              "• Backend URL is wrong or the server isn't running\n" +
+              "• Backend is cold-starting on a free tier — wait a minute and retry\n" +
+              "• CORS: this page's origin isn't in ALLOWED_ORIGINS on the server\n" +
+              "• Mixed content: an https page can't call an http backend"
+          );
+        }
+      });
+
+      $("query").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") $("ask").click();
+      });
+    </script>
+  </body>
+</html>
