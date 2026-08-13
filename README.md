@@ -1,5 +1,6 @@
 # Deploying Agentic AI Applications
 
+> [!NOTE]
 > **Ship your agent on a 100% free stack.**
 > Hands-on workshop · 90 minutes
 
@@ -9,11 +10,10 @@ Your agent works beautifully on localhost. Then you deploy it, someone clicks
 This repo is about the one architectural decision that fixes that — and a
 complete, working, deployed example of it.
 
----
-
 ## The one idea
 
-> ### Never run the agent inside the HTTP request
+> [!TIP]
+> Never run the agent inside the HTTP request
 
 Accept the job, return an ID immediately, do the work in the background, let the
 client poll. Every timeout problem dissolves once that clicks.
@@ -23,8 +23,6 @@ POST /runs        →  202 {"run_id": "abc"}        ~200 ms, always
 [background]      →  agent runs, writing each step to the database
 GET  /runs/abc    →  {status, steps[]}            client polls every 1.5 s
 ```
-
----
 
 ## Start here
 
@@ -38,12 +36,13 @@ GET  /runs/abc    →  {status, steps[]}            client polls every 1.5 s
 The website is the main thing. It's written so someone who wasn't in the room
 can go from nothing to a deployed agent on their own.
 
----
-
 ## Quick start
 
 You'll need a free [Gemini API key](https://aistudio.google.com/apikey) and a
 free [Supabase](https://supabase.com) project.
+
+> [!IMPORTANT]
+> Never commit your API key or database credentials. Use `.env` and `.gitignore`.
 
 ```bash
 # 1. install uv (one tool for Python, venvs, and packages)
@@ -59,7 +58,7 @@ cp .env.example .env      # then fill in the three values
 #    paste database/schema.sql into the Supabase SQL editor and run it
 
 # 5. go
-uv run uvicorn app.main:app --reload
+uv run fastapi dev app/main.py
 ```
 
 Check <http://localhost:8000/health> — you want `{"ok": true, "database": true}`.
@@ -78,8 +77,6 @@ cd website && npm install && npm run dev     # the workshop website, locally
 uv run python -m app.agent.manual_loop "..." # the agent, no framework, from the CLI
 uv run fastmcp dev app/tools/server.py       # poke the MCP tools in the Inspector
 ```
-
----
 
 ## What's in here
 
@@ -125,8 +122,6 @@ Desktop or Claude Code:
 
 Your Wikipedia tools show up as tools you can use in any conversation. No second
 deployment — see [Learn · MCP](website/src/content/docs/learn/mcp.mdx).
-
----
 
 ## The website
 
