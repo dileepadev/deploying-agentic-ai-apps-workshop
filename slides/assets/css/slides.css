@@ -1,0 +1,416 @@
+/* =============================================================================
+   Deploying Agentic AI Applications — slide deck
+   Fixed 1280x720 stage, scaled to fit the window. Everything is laid out
+   against those exact pixels, so what you see is what the projector gets.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+  --bg: #080c11;
+  --stage: #0d131b;
+  --panel: #141c26;
+  --panel-2: #101822;
+  --line: #26374a;
+  --ink: #eef4fb;
+  --muted: #91a5bb;
+  --dim: #64798f;
+  --accent: #7cd4a4;
+  --accent-dim: #3f7d5f;
+  --warn: #f3bd6d;
+  --err: #f28b8b;
+  --blue: #7fb6f0;
+  --purple: #b79cf0;
+
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  overflow: hidden;
+}
+
+/* --- Stage ---------------------------------------------------------------- */
+
+#stage {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 1280px; height: 720px;
+  transform: translate(-50%, -50%) scale(var(--scale, 1));
+  transform-origin: center center;
+}
+
+.slide {
+  position: absolute; inset: 0;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  padding: 64px 76px;
+  background: var(--stage);
+  border-radius: 6px;
+}
+.slide.current { display: flex; animation: fade .18s ease-out; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } }
+
+/* --- Typography ----------------------------------------------------------- */
+
+.kicker {
+  font-size: 15px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 18px; font-weight: 600;
+}
+h1 { font-size: 62px; line-height: 1.06; letter-spacing: -.025em; font-weight: 750; }
+h2 { font-size: 42px; line-height: 1.14; letter-spacing: -.02em; font-weight: 700;
+     margin-bottom: 26px; }
+h3 { font-size: 22px; font-weight: 650; margin-bottom: 10px; }
+p  { font-size: 22px; line-height: 1.55; color: var(--muted); max-width: 62ch; }
+p + p { margin-top: 16px; }
+p.big { font-size: 28px; color: var(--ink); }
+strong { color: var(--ink); font-weight: 650; }
+em { color: var(--accent); font-style: normal; }
+
+ul, ol { margin-left: 26px; }
+li { font-size: 22px; line-height: 1.5; color: var(--muted); margin-bottom: 14px; }
+li strong { color: var(--ink); }
+li::marker { color: var(--accent-dim); }
+
+a { color: var(--accent); }
+
+.lead {
+  font-size: 34px; line-height: 1.35; color: var(--ink);
+  font-weight: 600; max-width: 24ch; letter-spacing: -.01em;
+}
+
+.small { font-size: 17px; color: var(--dim); }
+.center { align-items: center; text-align: center; }
+.center p, .center .lead { max-width: 30ch; }
+
+/* --- Title & section dividers --------------------------------------------- */
+
+.title { background: radial-gradient(900px 520px at 18% -10%, #17242f, var(--stage)); }
+.title h1 { max-width: 20ch; }
+.title .meta { margin-top: 34px; font-size: 19px; color: var(--muted); }
+.title .meta b { color: var(--ink); }
+
+/* --- Speaker identity -------------------------------------------------------
+   One component, two sizes: a compact strip for the title slide (avatar +
+   name + icon-only social row) and a full card for the closing slide (bigger
+   avatar, role line, socials with labels). Icons are hand-built monoline
+   badges, not a brand icon font — the deck is a standalone file with no
+   external requests, so nothing can silently fail to load on a projector. */
+
+.speaker { display: flex; align-items: center; gap: 18px; }
+.speaker-avatar {
+  flex: none; border-radius: 50%; object-fit: cover;
+  border: 1.5px solid var(--line); background: var(--panel);
+}
+.speaker-name { color: var(--ink); font-weight: 650; }
+.speaker-role { color: var(--muted); font-size: 15px; margin-top: 2px; }
+
+.social-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.social-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--muted); text-decoration: none;
+  transition: color .12s ease;
+}
+.social-link:hover, .social-link:focus-visible { color: var(--accent); }
+.social-link svg { width: 20px; height: 20px; flex: none; }
+.social-link .handle { font-size: 14px; font-family: var(--mono); white-space: nowrap; }
+
+/* Compact: title slide. Icon-only, no handles — the h1 already carries the
+   session identity, this row is just "who, and where to find them". */
+.speaker.compact .speaker-avatar { width: 46px; height: 46px; }
+.speaker.compact .social-row { gap: 8px; margin-top: 6px; }
+.speaker.compact .social-link svg { width: 18px; height: 18px; }
+.speaker.compact .handle { display: none; }
+
+/* Full: closing slide. Bigger avatar, every handle spelled out. */
+.speaker.full { gap: 26px; align-items: flex-start; }
+.speaker.full .speaker-avatar { width: 108px; height: 108px; }
+.speaker.full .speaker-name { font-size: 26px; }
+.speaker.full .speaker-role { font-size: 17px; margin-bottom: 14px; }
+.speaker.full .social-row { column-gap: 22px; row-gap: 10px; max-width: 560px; }
+
+.divider {
+  background: linear-gradient(120deg, #10202c, var(--stage) 65%);
+  justify-content: center;
+}
+.divider h1 { font-size: 72px; max-width: 16ch; }
+.divider .step-no {
+  font-size: 110px; font-weight: 800; color: var(--accent);
+  opacity: .18; line-height: 1; margin-bottom: 8px;
+}
+
+/* --- The "one idea" slide -------------------------------------------------- */
+
+.oneidea { background: radial-gradient(800px 500px at 50% 40%, #14332a, var(--stage)); }
+.oneidea .lead {
+  font-size: 54px; max-width: 20ch; text-align: center;
+  border-left: 0; line-height: 1.2;
+}
+.oneidea .lead em { color: var(--accent); }
+
+/* --- Layout helpers -------------------------------------------------------- */
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+.cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.grow { flex: 1; }
+.mt { margin-top: 24px; }
+.mt-s { margin-top: 14px; }
+
+.card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 20px 22px;
+}
+.card h3 { color: var(--ink); }
+.card p, .card li { font-size: 18px; margin-bottom: 8px; }
+.card.good { border-color: var(--accent-dim); }
+.card.bad  { border-color: #6d3b3b; }
+.card .tag {
+  display: inline-block; font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px; margin-bottom: 12px; font-weight: 650;
+}
+.card.good .tag { background: rgba(124, 212, 164, .15); color: var(--accent); }
+.card.bad  .tag { background: rgba(242, 139, 139, .13); color: var(--err); }
+
+/* --- Code ------------------------------------------------------------------ */
+
+pre {
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 20px 22px; overflow: hidden;
+  font-family: var(--mono); font-size: 18px; line-height: 1.62;
+  color: #cddae8;
+}
+pre.sm { font-size: 16px; line-height: 1.55; }
+code { font-family: var(--mono); font-size: .92em; color: var(--accent); }
+p code, li code { background: var(--panel-2); padding: 1px 6px; border-radius: 4px; }
+
+/* Syntax accents — hand-applied, no highlighter library needed */
+.c  { color: var(--dim); font-style: italic; }   /* comment  */
+.k  { color: var(--purple); }                    /* keyword  */
+.s  { color: var(--accent); }                    /* string   */
+.f  { color: var(--blue); }                      /* function */
+.n  { color: var(--warn); }                      /* number/decorator */
+.hl { background: rgba(124, 212, 164, .12); border-left: 3px solid var(--accent);
+      margin-left: -22px; padding-left: 19px; display: block; }
+.fade { opacity: .38; }
+
+/* --- Flow diagrams --------------------------------------------------------- */
+
+.flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.node {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+  padding: 11px 16px; font-size: 17px; color: var(--ink); white-space: nowrap;
+}
+.node.accent { border-color: var(--accent-dim); color: var(--accent); }
+.node.warn   { border-color: var(--warn); color: var(--warn); }
+.arrow { color: var(--dim); font-size: 19px; }
+
+.seq { display: grid; gap: 12px; }
+.seq-row {
+  display: grid; grid-template-columns: 128px 1fr 132px;
+  align-items: center; gap: 16px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 14px 18px;
+}
+.seq-row.bg { background: var(--panel-2); border-style: dashed; }
+.seq-verb {
+  font-family: var(--mono); font-size: 15px; font-weight: 700;
+  color: var(--accent); letter-spacing: .04em;
+}
+.seq-what { font-size: 18px; color: var(--ink); }
+.seq-time { font-family: var(--mono); font-size: 15px; color: var(--muted); text-align: right; }
+
+/* --- Tables ---------------------------------------------------------------- */
+
+table { width: 100%; border-collapse: collapse; font-size: 18px; }
+th {
+  text-align: left; padding: 11px 14px; color: var(--dim);
+  font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
+  border-bottom: 1px solid var(--line); font-weight: 650;
+}
+td { padding: 12px 14px; border-bottom: 1px solid rgba(38, 55, 74, .55); color: var(--muted); }
+td:first-child { color: var(--ink); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+.tick { color: var(--accent); } .cross { color: var(--err); }
+
+/* --- Checklist ------------------------------------------------------------- */
+
+.checklist { list-style: none; margin: 0; display: grid; gap: 11px; }
+.checklist li {
+  font-size: 19px; color: var(--ink); margin: 0; padding-left: 34px;
+  position: relative; line-height: 1.4;
+}
+.checklist li::before {
+  content: ""; position: absolute; left: 0; top: 3px;
+  width: 19px; height: 19px; border: 2px solid var(--accent-dim); border-radius: 5px;
+}
+.checklist li span { color: var(--muted); font-size: 16px; display: block; }
+
+/* --- Screenshot placeholders ----------------------------------------------- */
+
+.shot {
+  border: 2px dashed var(--line); border-radius: 12px;
+  background: var(--panel-2); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+  color: var(--dim); font-size: 16px; text-align: center; padding: 22px;
+  min-height: 210px;
+}
+.shot::before { content: "🖼"; font-size: 30px; opacity: .5; }
+.shot b { color: var(--warn); font-family: var(--mono); font-size: 14px; }
+.shot img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+
+/* --- Callouts -------------------------------------------------------------- */
+
+.callout {
+  border-left: 4px solid var(--accent); background: rgba(124, 212, 164, .07);
+  padding: 16px 20px; border-radius: 0 10px 10px 0;
+}
+.callout.warn { border-color: var(--warn); background: rgba(243, 189, 109, .07); }
+.callout.err  { border-color: var(--err);  background: rgba(242, 139, 139, .07); }
+.callout p { font-size: 20px; color: var(--ink); }
+
+.fact {
+  font-family: var(--mono); font-size: 14px; color: var(--dim);
+  margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line);
+}
+
+/* --- Chrome: progress, counter, notes, timer -------------------------------- */
+
+#progress {
+  position: fixed; top: 0; left: 0; height: 3px;
+  background: var(--accent); width: 0%; transition: width .2s ease; z-index: 40;
+}
+#counter {
+  position: fixed; bottom: 14px; right: 18px; z-index: 40;
+  font-family: var(--mono); font-size: 13px; color: var(--dim);
+}
+#timer {
+  position: fixed; bottom: 14px; left: 18px; z-index: 40;
+  font-family: var(--mono); font-size: 13px; color: var(--dim);
+}
+#timer.over { color: var(--err); }
+#timer.hidden, #notes.hidden, #help.hidden, #overview.hidden { display: none; }
+
+#notes {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 45;
+  max-height: 34vh; overflow-y: auto;
+  background: #05080b; border-top: 2px solid var(--accent-dim);
+  padding: 16px 26px 20px;
+  font-size: 15px; line-height: 1.6; color: #b9cadb;
+}
+#notes h4 {
+  font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 8px;
+}
+#notes ul { margin-left: 20px; }
+#notes li { font-size: 15px; margin-bottom: 5px; color: #b9cadb; }
+#notes b { color: #fff; }
+.notes { display: none; }
+
+#overview {
+  position: fixed; inset: 0; z-index: 50; background: rgba(5, 8, 11, .97);
+  overflow-y: auto; padding: 34px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px;
+  align-content: start;
+}
+.thumb {
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+  padding: 12px 14px; cursor: pointer; min-height: 88px;
+}
+.thumb:hover, .thumb.current { border-color: var(--accent); }
+.thumb .n { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.thumb .t { font-size: 13px; color: var(--ink); margin-top: 5px; line-height: 1.35; }
+
+#help {
+  position: fixed; inset: 0; z-index: 60; background: rgba(5, 8, 11, .96);
+  display: grid; place-items: center;
+}
+#help div { background: var(--panel); border: 1px solid var(--line);
+            border-radius: 14px; padding: 30px 38px; }
+#help table { font-size: 16px; width: auto; }
+#help td { border: 0; padding: 6px 18px 6px 0; }
+#help kbd {
+  font-family: var(--mono); font-size: 14px; background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 5px; padding: 2px 8px; color: var(--accent);
+}
+
+/* --- Agenda ----------------------------------------------------------------- */
+
+.agenda { display: grid; gap: 9px; }
+.ag-row {
+  display: grid; grid-template-columns: 96px 1fr 28px;
+  align-items: center; gap: 18px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 12px 18px;
+  font-family: inherit; text-align: left; cursor: pointer;
+  transition: border-color .13s ease, background .13s ease;
+}
+.ag-row:hover, .ag-row:focus-visible { border-color: var(--accent); background: var(--panel-2); }
+.ag-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ag-time {
+  font-family: var(--mono); font-size: 15px; color: var(--accent);
+  letter-spacing: .04em; font-weight: 700;
+}
+.ag-what { display: block; }
+.ag-what b { display: block; font-size: 20px; color: var(--ink); font-weight: 650; }
+.ag-what span { display: block; font-size: 15px; color: var(--muted); margin-top: 2px; }
+.ag-go { font-size: 19px; color: var(--dim); text-align: right; }
+.ag-row:hover .ag-go, .ag-row:focus-visible .ag-go { color: var(--accent); }
+
+/* The block you're currently in, when you jump back to the agenda mid-talk. */
+.ag-row.here { border-color: var(--accent-dim); }
+.ag-row.here .ag-time::after { content: " ●"; font-size: 10px; vertical-align: middle; }
+
+/* --- Chrome: on-screen navigation ------------------------------------------- */
+
+/* Sits above the counter, bottom-right. Faint at rest so it never competes with
+   the slide; wakes on mouse movement and fades again after a few seconds. */
+#controls {
+  position: fixed; bottom: 34px; right: 18px; z-index: 42;
+  display: flex; align-items: center; gap: 6px;
+  opacity: 0; transition: opacity .25s ease; pointer-events: none;
+}
+#controls.awake { opacity: .5; pointer-events: auto; }
+#controls.awake:hover, #controls:focus-within { opacity: 1; pointer-events: auto; }
+
+.ctrl {
+  display: grid; place-items: center;
+  min-width: 30px; height: 30px; padding: 0 9px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+  color: var(--muted); font-family: var(--mono); font-size: 14px; line-height: 1;
+  cursor: pointer; transition: border-color .13s ease, color .13s ease;
+}
+.ctrl:hover { border-color: var(--accent); color: var(--accent); }
+.ctrl:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ctrl[disabled] { opacity: .3; cursor: default; }
+.ctrl[disabled]:hover { border-color: var(--line); color: var(--muted); }
+
+#seclabel {
+  font-family: var(--mono); font-size: 12px; color: var(--dim);
+  margin-right: 6px; white-space: nowrap;
+}
+
+/* Divider positions marked on the progress bar, so you can see how much of the
+   current block is left rather than only how much of the whole deck. */
+#ticks { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 41; pointer-events: none; }
+#ticks i { position: absolute; top: 0; width: 1px; height: 3px; background: var(--bg); opacity: .85; }
+
+/* --- Print / PDF export ----------------------------------------------------- */
+
+@media print {
+  @page { size: 1280px 720px; margin: 0; }
+  html, body { overflow: visible; background: #fff; height: auto; }
+  #stage { position: static; width: auto; height: auto; transform: none; }
+  #progress, #counter, #timer, #notes, #overview, #help,
+  #controls, #ticks { display: none !important; }
+  .slide {
+    position: relative; inset: auto; display: flex !important;
+    width: 1280px; height: 720px; break-after: page; border-radius: 0;
+    animation: none;
+  }
+}
