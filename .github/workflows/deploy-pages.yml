@@ -1,0 +1,79 @@
+name: Deploy workshop site to GitHub Pages
+
+# One Astro build publishes everything:
+#   /          the workshop site (Starlight)
+#   /slides/   the presentation deck, full-bleed
+#   /demo/     the demo web client
+#
+# The deck and the client are single-sourced from slides/ and client/ at the repo
+# root; website/scripts/sync-assets.mjs pulls them in at build time, so there is
+# never a second copy to keep in sync.
+#
+# Enable once at: Settings → Pages → Source: GitHub Actions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "slides/**"
+      - "client/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - run: npm ci
+
+      - name: Build the site, the deck and the demo client
+        # BASE_PATH must match the Pages sub-path. For a user/org site or a
+        # custom domain, set it to "/" instead.
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}
+        run: npm run build
+
+      - name: Sanity-check the build
+        # Fail here rather than shipping a site with a missing deck.
+        run: |
+          set -euo pipefail
+          for page in index.html slides/index.html demo/index.html deck/index.html; do
+            test -f "_site/$page" || { echo "missing: $page"; exit 1; }
+          done
+          slides=$(grep -o '<section[^>]*class="[^"]*slide' _site/slides/index.html | wc -l)
+          echo "deck contains $slides slides"
+          test "$slides" -ge 30 || { echo "deck looks truncated"; exit 1; }
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
