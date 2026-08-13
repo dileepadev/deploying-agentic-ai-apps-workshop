@@ -1,6 +1,6 @@
-# Contributing to Deploying Agentic AI Applications
+# Contributing to deploying-agentic-ai-apps-workshop
 
-Thank you for your interest in contributing to [Deploying Agentic AI Applications](https://github.com/dileepadev/deploying-agentic-ai-apps-workshop)! We welcome contributions, including bug fixes, feature enhancements, documentation improvements, and other general improvements.
+Thank you for your interest in contributing to [deploying-agentic-ai-apps-workshop](https://github.com/dileepadev/deploying-agentic-ai-apps-workshop)! We welcome contributions, including bug fixes, feature enhancements, documentation improvements, and other general improvements.
 
 ## Getting Started
 
