@@ -20,6 +20,11 @@ dependencies = [
     "python-dotenv>=1.0,<2.0",
     # The agent framework. Built by the Pydantic team to feel like FastAPI, which
     # is why it costs almost no new concepts once you know FastAPI.
+    #
+    # `app/agent/research.py` imports `pydantic_ai.retries` and tenacity to survive
+    # the 429s a free-tier key hands out mid-run. No extra is needed here: the
+    # `pydantic-ai` meta-package already depends on `pydantic-ai-slim[retries]`,
+    # which is what brings tenacity in. (`pydantic-ai[retries]` does not exist.)
     "pydantic-ai>=2.0,<3.0",
     # Turns our tool functions into an MCP server other AI clients can call.
     "fastmcp>=3.0,<4.0",

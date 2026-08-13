@@ -27,9 +27,12 @@ import sys
 from dataclasses import dataclass
 from functools import cache
 
+import httpx
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.providers.google import GoogleProvider
+from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig, wait_retry_after
+from tenacity import retry_if_exception_type, stop_after_attempt
 
 from app import config, db
 from app.agent.steps import StepLogger
@@ -61,6 +64,47 @@ class Deps:
     steps: StepLogger
 
 
+def _only_retryable(response: httpx.Response) -> None:
+    """Raise on the failures worth retrying, and only those.
+
+    Same policy `app/llm.py` applies to the hand-written loop: 429 means "too
+    fast" and 5xx means "our fault", both of which usually pass. A 400/403/404
+    means the request itself is wrong — retrying it just burns quota, so we let
+    it through untouched and the run fails immediately with a useful message.
+    """
+    if response.status_code == 429 or response.status_code >= 500:
+        response.raise_for_status()
+
+
+def retrying_transport(
+    wrapped: httpx.AsyncBaseTransport | None = None,
+) -> AsyncTenacityTransport:
+    """An HTTP transport that waits out a rate limit instead of failing the run.
+
+    A free Gemini key allows a handful of requests PER MINUTE, and one run of
+    this agent spends about ten — so a mid-run 429 isn't an edge case here, it's
+    the normal path. Without this the first one kills the whole run, which is
+    the same failure `app/llm.py` guards against in the hand-written loop. The
+    framework path needs it too; it just gets it by wrapping the HTTP client
+    rather than by writing the loop.
+
+    Gemini's 429 tells you how long to wait, so we honour that rather than
+    guessing, and fall back to exponential backoff when it doesn't.
+
+    `wrapped` is only there so the tests can hand it a fake network.
+    """
+    return AsyncTenacityTransport(
+        RetryConfig(
+            retry=retry_if_exception_type(httpx.HTTPStatusError),
+            wait=wait_retry_after(max_wait=60),
+            stop=stop_after_attempt(3),
+            reraise=True,
+        ),
+        wrapped=wrapped,
+        validate_response=_only_retryable,
+    )
+
+
 @cache
 def build_model() -> GoogleModel:
     """Create the model, once.
@@ -72,7 +116,10 @@ def build_model() -> GoogleModel:
     """
     return GoogleModel(
         config.GEMINI_MODEL,
-        provider=GoogleProvider(api_key=config.GEMINI_API_KEY),
+        provider=GoogleProvider(
+            api_key=config.GEMINI_API_KEY,
+            http_client=httpx.AsyncClient(transport=retrying_transport(), timeout=60.0),
+        ),
     )
 
 

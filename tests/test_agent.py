@@ -8,6 +8,7 @@ the part that actually breaks.
 
 from unittest.mock import patch
 
+import httpx
 import pytest
 from pydantic_ai.models.test import TestModel
 
@@ -120,3 +121,54 @@ async def test_a_failed_run_is_recorded_not_swallowed(steps_log):
 
     assert updates["status"] == "error"
     assert "bad key" in updates["error"]
+
+
+# --- surviving a rate-limited free tier ---------------------------------------
+# One run spends about ten model calls and a free Gemini key allows five a
+# minute, so a mid-run 429 is the normal path, not an edge case. These use a
+# fake network — no key, no quota, no waiting.
+
+
+async def _send(handler) -> tuple[int, int]:
+    """Drive the real transport against `handler`. Returns (status, attempts)."""
+    from app.agent.research import retrying_transport
+
+    attempts = 0
+
+    def counting(request):
+        nonlocal attempts
+        attempts += 1
+        return handler(attempts)
+
+    transport = retrying_transport(wrapped=httpx.MockTransport(counting))
+    async with httpx.AsyncClient(transport=transport) as client:
+        response = await client.get("https://example.invalid/generate")
+    return response.status_code, attempts
+
+
+async def test_a_rate_limit_is_waited_out_not_given_up_on():
+    """The 429 that used to end the whole run."""
+    status, attempts = await _send(
+        lambda n: (
+            httpx.Response(429, headers={"retry-after": "0"})
+            if n < 3
+            else httpx.Response(200, json={"ok": True})
+        )
+    )
+
+    assert status == 200  # recovered
+    assert attempts == 3
+
+
+async def test_a_bad_request_is_not_retried():
+    """400 means the request is wrong. Retrying it just burns quota."""
+    status, attempts = await _send(lambda n: httpx.Response(400, json={"e": "nope"}))
+
+    assert status == 400
+    assert attempts == 1
+
+
+async def test_retrying_eventually_gives_up():
+    """A quota that never frees up has to surface as a failure, not a hang."""
+    with pytest.raises(httpx.HTTPStatusError):
+        await _send(lambda n: httpx.Response(429, headers={"retry-after": "0"}))
