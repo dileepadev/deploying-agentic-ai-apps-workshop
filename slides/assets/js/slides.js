@@ -19,6 +19,7 @@
   const progress = document.getElementById("progress");
   const ticks = document.getElementById("ticks");
   const counter = document.getElementById("counter");
+  const watermark = document.getElementById("watermark");
   const notesEl = document.getElementById("notes");
   const timerEl = document.getElementById("timer");
   const overviewEl = document.getElementById("overview");
@@ -79,6 +80,7 @@
     progress.style.width = ((index + 1) / slides.length) * 100 + "%";
     counter.textContent = `${index + 1} / ${slides.length}`;
     secLabel.textContent = sectionNames[sectionOf(index)];
+    watermark.classList.toggle("hidden", slides[index].classList.contains("title"));
 
     btnPrev.disabled = index === 0;
     btnNext.disabled = index === slides.length - 1;

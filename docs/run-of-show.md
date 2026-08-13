@@ -20,14 +20,14 @@ running live.**
 
 | Time | Block | Slides | Notes |
 | --- | --- | --- | --- |
-| 0–05 | Intro, agenda + what we're building | 1–5 | Show the finished demo mid-run **first** |
-| 05–20 | Agentic architecture & the Timeout Trap | 6–13 | The wall. Show a real 504. |
-| 20–40 | The accept-and-poll pattern | 14–22 | The money section. Slide 15 is the deck. |
-| 40–58 | Memory, state & vector storage | 23–30 | Runs/steps schema, pgvector, guardrails |
-| 58–80 | **Live walkthrough + deploy** | 31–33 | See runbook below |
-| 80–90 | Wrap-up, checklist, Q&A | 34–36 | Photographable checklist slide |
+| 0–05 | Intro, about me, agenda + what we're building | 1–6 | Show the finished demo mid-run **first** |
+| 05–20 | Agentic architecture & the Timeout Trap | 7–14 | The wall. Show a real 504. |
+| 20–40 | The accept-and-poll pattern | 15–23 | The money section. Slide 16 is the deck. |
+| 40–58 | Memory, state & vector storage | 24–31 | Runs/steps schema, pgvector, guardrails |
+| 58–80 | **Live walkthrough + deploy** | 32–34 | See runbook below |
+| 80–90 | Wrap-up, checklist, Q&A | 35–37 | Photographable checklist slide |
 
-> Slide numbers match the deck as it stands (36 slides). Each block starts on its
+> Slide numbers match the deck as it stands (37 slides). Each block starts on its
 > divider slide, and **`A`** jumps to the agenda from anywhere — the block you were
 > in stays marked, so you can take a tangent and find your way back.
 

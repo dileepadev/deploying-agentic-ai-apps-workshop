@@ -96,12 +96,31 @@ a { color: var(--accent); }
 .title .meta { margin-top: 34px; font-size: 19px; color: var(--muted); }
 .title .meta b { color: var(--ink); }
 
+/* Decorative node graph filling the empty right half of the title slide —
+   an abstract "agent + steps" motif, inline so the deck stays a standalone
+   file. Fades into the background at its left edge instead of a hard box,
+   and sits over empty space, so it never competes with type. */
+.title-art {
+  position: absolute;
+  top: 0; right: 0;
+  width: 520px; height: 720px;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 22%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 22%);
+}
+.title-art .art-glow { animation: art-pulse 4s ease-in-out infinite; }
+.title-art .art-flow { stroke-dasharray: 6 9; animation: art-flow 3.2s linear infinite; }
+@keyframes art-pulse { 0%, 100% { opacity: .3; } 50% { opacity: .5; } }
+@keyframes art-flow { to { stroke-dashoffset: -150; } }
+
 /* --- Speaker identity -------------------------------------------------------
    One component, two sizes: a compact strip for the title slide (avatar +
    name + icon-only social row) and a full card for the closing slide (bigger
-   avatar, role line, socials with labels). Icons are hand-built monoline
-   badges, not a brand icon font — the deck is a standalone file with no
-   external requests, so nothing can silently fail to load on a projector. */
+   avatar, role line, socials with labels). Icons are the official brand marks
+   — the same path data react-icons ships (Simple Icons, plus Font Awesome for
+   LinkedIn and the two non-brand glyphs) — inlined rather than pulled from an
+   icon font or CDN. The deck is a standalone file that makes no external
+   requests, so nothing can silently fail to load on a projector. */
 
 .speaker { display: flex; align-items: center; gap: 18px; }
 .speaker-avatar {
@@ -123,10 +142,19 @@ a { color: var(--accent); }
 
 /* Compact: title slide. Icon-only, no handles — the h1 already carries the
    session identity, this row is just "who, and where to find them". */
-.speaker.compact .speaker-avatar { width: 46px; height: 46px; }
+.speaker.compact { align-items: flex-start; }
+.speaker.compact .speaker-avatar { width: 46px; height: 46px; margin-bottom: 14px; }
 .speaker.compact .social-row { gap: 8px; margin-top: 6px; }
 .speaker.compact .social-link svg { width: 18px; height: 18px; }
 .speaker.compact .handle { display: none; }
+
+/* Lines under the compact card (session time, last-updated). Indented to
+   line up with the name/role text, not the avatar beside it. */
+.meta-secondary {
+  margin-top: 80px;
+  display: grid;
+  gap: 2px;
+}
 
 /* Full: closing slide. Bigger avatar, every handle spelled out. */
 .speaker.full { gap: 26px; align-items: flex-start; }
@@ -161,6 +189,7 @@ a { color: var(--accent); }
 .grow { flex: 1; }
 .mt { margin-top: 24px; }
 .mt-s { margin-top: 14px; }
+.mb-s { margin-bottom: 14px; }
 
 .card {
   background: var(--panel); border: 1px solid var(--line);
@@ -294,7 +323,15 @@ tr:last-child td { border-bottom: 0; }
   font-family: var(--mono); font-size: 13px; color: var(--dim);
 }
 #timer.over { color: var(--err); }
-#timer.hidden, #notes.hidden, #help.hidden, #overview.hidden { display: none; }
+#timer.hidden, #notes.hidden, #help.hidden, #overview.hidden, #watermark.hidden { display: none; }
+
+/* Faint per-deck watermark, top-right. Hidden on the title and closing slides
+   (see slides.js) since both already carry the deck name in the heading. */
+#watermark {
+  position: fixed; top: 16px; right: 18px; z-index: 40;
+  font-family: var(--mono); font-size: 12px; letter-spacing: .01em;
+  color: var(--dim); opacity: .55; pointer-events: none;
+}
 
 #notes {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 45;
@@ -407,7 +444,7 @@ tr:last-child td { border-bottom: 0; }
   html, body { overflow: visible; background: #fff; height: auto; }
   #stage { position: static; width: auto; height: auto; transform: none; }
   #progress, #counter, #timer, #notes, #overview, #help,
-  #controls, #ticks { display: none !important; }
+  #controls, #ticks, #watermark { display: none !important; }
   .slide {
     position: relative; inset: auto; display: flex !important;
     width: 1280px; height: 720px; break-after: page; border-radius: 0;
