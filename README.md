@@ -72,7 +72,7 @@ watch the steps appear.
 ### Other useful commands
 
 ```bash
-uv run --extra dev pytest                    # 12 tests, no keys or network needed
+uv run --extra dev pytest                    # 17 tests, no keys or network needed
 cd website && npm install && npm run dev     # the workshop website, locally
 uv run python -m app.agent.manual_loop "..." # the agent, no framework, from the CLI
 uv run fastmcp dev app/tools/server.py       # poke the MCP tools in the Inspector
@@ -88,7 +88,8 @@ uv run fastmcp dev app/tools/server.py       # poke the MCP tools in the Inspect
 ├── client/               the client — one HTML file, no build
 ├── database/schema.sql   three tables
 ├── deploy/               Render blueprint
-├── tests/                12 tests that need no API key
+├── tests/                17 tests that need no API key
+├── http/                 ready-made requests for driving the API by hand
 ├── slides/               the deck
 ├── website/              the workshop website + slides route (Astro)
 └── docs/                 run of show, prep, prerequisites, free-tier notes

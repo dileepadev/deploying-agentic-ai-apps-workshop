@@ -1,0 +1,104 @@
+### =========================================================================
+###  Research Agent — the API, by hand
+###
+###  Click "Send Request" above any block below. The requests are in the order
+###  the workshop walks through them, and the polling flow further down is the
+###  whole point of the session: POST comes back instantly, GET catches up.
+###
+###  Point this at your deployed service by swapping which @baseUrl is live.
+### =========================================================================
+
+@baseUrl = http://localhost:8000
+# @baseUrl = https://your-service.onrender.com
+
+
+### What is this service?
+GET {{baseUrl}}/
+Accept: application/json
+
+
+### Is it alive, and can it reach the database?
+#
+# On a free tier this is also the wake-up call. Send it ~10 minutes before a
+# demo so nobody watches the cold start. `database: false` means the Supabase
+# key or URL is wrong, the project has paused, or the tables don't exist yet.
+GET {{baseUrl}}/health
+Accept: application/json
+
+
+### =========================================================================
+###  The right way — accept the job, poll for the result
+### =========================================================================
+
+### 1. Hand over the work. Should return 202 in ~200ms.
+#
+# Note what comes back: a run id and "queued". No answer. The agent has not
+# started thinking yet, and that is exactly the behaviour we want — this
+# response is a receipt, not a result.
+# @name createRun
+POST {{baseUrl}}/runs
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "how do solar panels actually work?"
+}
+
+
+### 2. Poll for it. Send this one repeatedly.
+#
+# `{{createRun.response.body.$.run_id}}` reuses the id from the request above,
+# so there is nothing to copy by hand — just keep hitting Send.
+#
+# Watch `steps` grow on each send: that array IS the agent's thinking, written
+# to the database as it happens. `status` goes queued -> running -> done.
+GET {{baseUrl}}/runs/{{createRun.response.body.$.run_id}}
+Accept: application/json
+
+
+### =========================================================================
+###  The wrong way — kept so you can feel the problem
+### =========================================================================
+
+### The naive endpoint: the agent runs inside the request.
+#
+# ⚠️  This blocks for 30-60 seconds and your HTTP client may well give up
+#     before the server does — which is precisely the failure this workshop is
+#     about. On localhost it usually survives. Deployed behind a proxy, this is
+#     the request that becomes a 504 with no way to recover.
+POST {{baseUrl}}/runs/naive
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "what is the photoelectric effect?"
+}
+
+
+### =========================================================================
+###  The guardrails
+### =========================================================================
+
+### Too short — 422, and it costs zero model calls.
+#
+# FastAPI rejects this from the type hints alone, before any handler runs.
+# Validation is a quota guardrail, not just a correctness one.
+POST {{baseUrl}}/runs
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "hi"
+}
+
+
+### Unknown run — 404, not a 500.
+#
+# Two shapes worth checking, because they fail in different places: an id that
+# isn't a uuid at all, and one that is a valid uuid but matches no row.
+GET {{baseUrl}}/runs/does-not-exist
+Accept: application/json
+
+###
+GET {{baseUrl}}/runs/00000000-0000-0000-0000-000000000000
+Accept: application/json

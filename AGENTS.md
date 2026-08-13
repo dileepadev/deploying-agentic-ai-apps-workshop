@@ -27,8 +27,10 @@ See [README.md](README.md) for the full picture and stack.
 
 ## Testing
 
-- `uv run --extra dev pytest` — 12 tests, no API keys or network needed. Run before calling a backend change done.
+- `uv run --extra dev pytest` — 17 tests, no API keys or network needed. Run before calling a backend change done.
 - Keep new tests offline (mock external calls — see `tests/conftest.py`).
+- `http/` holds `.http` request files for driving a *running* server by hand. They are not part of the
+  suite and do hit the network — don't move them into `tests/`.
 
 ## Docs
 
