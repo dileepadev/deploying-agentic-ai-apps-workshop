@@ -44,7 +44,8 @@ See [README.md](README.md) for the full picture and stack.
 ## Secrets
 
 - Real values live in `.env` (gitignored) — never in `.env.example` or committed anywhere.
-- The Supabase `service_role` key bypasses Row Level Security: server-side only, never in `client/index.html` or frontend code.
+- The Supabase secret key (`sb_secret_…`, `SUPABASE_SECRET_KEY`) bypasses Row Level Security: server-side only, never in `client/index.html` or frontend code. The legacy `service_role` key is the same thing under the old name and is still accepted.
+- Send Supabase keys on the `apikey` header only. The new keys aren't JWTs, so `Authorization: Bearer` is wrong for them — see the comment in `app/db.py`.
 
 ## Anti-hallucination
 

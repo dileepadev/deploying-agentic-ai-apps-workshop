@@ -40,7 +40,20 @@ GEMINI_API_KEY = _required("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
 
 SUPABASE_URL = _required("SUPABASE_URL").rstrip("/")
-SUPABASE_SERVICE_ROLE_KEY = _required("SUPABASE_SERVICE_ROLE_KEY")
+
+# Supabase replaced the old `anon` / `service_role` JWT keys with publishable
+# (`sb_publishable_...`) and secret (`sb_secret_...`) keys. We want the secret
+# one — same job as `service_role`: full access, bypasses Row Level Security.
+#
+# The legacy keys still work until Supabase retires them at the end of 2026, so
+# we accept the old variable name too — `or` takes the first non-empty value, and
+# a project from before the change keeps working with what it already has. The
+# final `_required` only runs when both are missing, and names the one to set.
+SUPABASE_SECRET_KEY = (
+    os.getenv("SUPABASE_SECRET_KEY", "").strip()
+    or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    or _required("SUPABASE_SECRET_KEY")
+)
 
 # "a,b" -> ["a", "b"].  "*" -> ["*"]
 ALLOWED_ORIGINS = [

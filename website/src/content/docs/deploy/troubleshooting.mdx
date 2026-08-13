@@ -60,9 +60,13 @@ In order of likelihood:
 1. You haven't run `database/schema.sql` yet.
 2. `SUPABASE_URL` has a trailing slash, or isn't the
    `https://xxx.supabase.co` project URL.
-3. You used the `anon` key instead of `service_role`. The anon key is
-   blocked by the RLS you enabled — which is exactly its job.
-4. The project is **paused**.
+3. You used the publishable key instead of the secret one. `sb_publishable_…`
+   is blocked by the RLS you enabled — which is exactly its job. You want
+   `sb_secret_…` (or the legacy `service_role` key on an older project).
+4. You put the key in an `Authorization: Bearer` header as well as `apikey`.
+   The new keys aren't JWTs, so that header is at best redundant and at worst
+   a rejected request. Send `apikey` only.
+5. The project is **paused**.
 
 </details>
 
@@ -70,11 +74,13 @@ In order of likelihood:
 <summary>Everything worked yesterday, today nothing does</summary>
 
 
-Free Supabase projects pause after about a week of inactivity. Open the
-dashboard and resume.
+Free Supabase projects pause when they see too little database activity across
+a 7-day window. Open the dashboard and hit **Resume project** — you have 90
+days before the backup is dropped.
 
 **This is the single most common way a workshop project dies.** A paused
-database looks identical to a broken app.
+database looks identical to a broken app. A few requests a day is enough to
+prevent it.
 
 </details>
 

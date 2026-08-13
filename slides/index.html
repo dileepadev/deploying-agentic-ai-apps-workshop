@@ -1329,8 +1329,9 @@ GEMINI_API_KEY=</pre>
               Then open only what you need.
             </p>
             <p class="small">
-              Supabase gives you two keys. The <code>anon</code> key is safe in
-              a browser and restricted by RLS. The <code>service_role</code> key
+              Supabase gives you two keys. The
+              <code>sb_publishable_…</code> key is safe in a browser and
+              restricted by RLS. The <code>sb_secret_…</code> key
               <strong>bypasses RLS entirely</strong> — server-side only,
               forever.
             </p>
@@ -1357,9 +1358,15 @@ GEMINI_API_KEY=</pre>
               >
             </li>
             <li>
-              Practical warning: the service_role key in a
+              Practical warning: the secret key in a
               <code>.env</code> that gets committed is a full database takeover,
               not just a leaked API quota.
+            </li>
+            <li>
+              If someone's project shows <code>anon</code> /
+              <code>service_role</code> instead, they're on the legacy keys —
+              same two roles, older names, valid until end of 2026. Don't let
+              this derail the room.
             </li>
           </ul>
         </div>

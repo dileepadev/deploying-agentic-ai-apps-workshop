@@ -76,7 +76,7 @@ every 1.5 seconds.
 ### `memories` — long-term memory, for later
 
 ```sql
-create extension if not exists vector;
+create extension if not exists vector with schema extensions;
 
 create table if not exists memories (
   id          bigserial primary key,
@@ -108,13 +108,18 @@ alter table runs  enable row level security;
 alter table steps enable row level security;
 ```
 
-Supabase gives you two keys. The `anon` key is safe in a browser and restricted
-by Row Level Security policies. The `service_role` key **bypasses RLS
-completely** and is what our server uses.
+Supabase gives you two kinds of key. The **publishable** key
+(`sb_publishable_…`) is safe in a browser and restricted by Row Level Security
+policies. The **secret** key (`sb_secret_…`) **bypasses RLS completely** and is
+what our server uses.
 
 By enabling RLS and writing **no policies at all**, anyone holding the public
-`anon` key gets nothing. Our backend still works because `service_role` ignores
-RLS.
+publishable key gets nothing. Our backend still works because the secret key
+ignores RLS.
+
+If your project predates the rename you'll see `anon` and `service_role`
+instead — the same two roles, the same model. They work until Supabase retires
+them at the end of 2026.
 
 That's the guardrail: the browser can't reach your data even if someone reads
 your frontend source.
@@ -145,9 +150,9 @@ query.
 
 
 Check `SUPABASE_URL` has no trailing slash and looks like
-`https://abcdefghij.supabase.co`. Then confirm you copied the
-**service_role** key, not the `anon` one — the anon key will be blocked by
-the RLS you just enabled, which is exactly what it's supposed to do.
+`https://abcdefghij.supabase.co`. Then confirm you copied the **secret** key
+(`sb_secret_…`), not the publishable one — the publishable key will be blocked
+by the RLS you just enabled, which is exactly what it's supposed to do.
 
 </details>
 
@@ -155,9 +160,13 @@ the RLS you just enabled, which is exactly what it's supposed to do.
 <summary>Everything worked yesterday, today nothing does</summary>
 
 
-Free Supabase projects pause after about a week of inactivity. Open the
-dashboard and resume. **Ping it weekly** if the project matters — a paused
-database looks exactly like a broken app.
+Free Supabase projects pause when they see too little database activity over a
+7-day window. Supabase emails a warning first, then a confirmation once it's
+paused. Open the dashboard and hit **Resume project**.
+
+A few requests a day is enough to keep it awake, so **ping it daily** if the
+project matters — a paused database looks exactly like a broken app. You have
+90 days to restore a paused project before the backup is gone.
 
 </details>
 

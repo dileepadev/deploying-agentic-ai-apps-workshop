@@ -49,23 +49,27 @@ create index if not exists steps_run_seq_idx on steps (run_id, seq);
 -- -----------------------------------------------------------------------------
 --  3. Row Level Security
 -- -----------------------------------------------------------------------------
--- Supabase gives you two keys:
+-- Supabase gives you two kinds of key:
 --
---   anon key          -- safe to ship in a browser. Restricted by RLS policies.
---   service_role key  -- BYPASSES RLS COMPLETELY. Server-side only. Never, ever
---                        put this in frontend code.
+--   sb_publishable_...  -- safe to ship in a browser. Restricted by RLS policies.
+--   sb_secret_...       -- BYPASSES RLS COMPLETELY. Server-side only. Never, ever
+--                          put this in frontend code.
 --
--- Our backend uses the service_role key, so it can do everything. Turning RLS on
--- means that if anyone gets hold of the public anon key, they still get nothing.
+-- Older projects have the legacy JWT pair instead — `anon` and `service_role`,
+-- same two roles under the old names. They work until Supabase retires them at
+-- the end of 2026. Either way the security model below is identical.
+--
+-- Our backend uses the secret key, so it can do everything. Turning RLS on
+-- means that if anyone gets hold of the public key, they still get nothing.
 --
 -- Default-deny: enable RLS and write no policies at all.
 
 alter table runs  enable row level security;
 alter table steps enable row level security;
 
--- Want the browser to read runs directly with the anon key instead of going
--- through your API? Then add a policy. Uncomment ONLY if you need it, and note
--- that this makes every run readable by anyone who knows its id:
+-- Want the browser to read runs directly with the publishable key instead of
+-- going through your API? Then add a policy. Uncomment ONLY if you need it, and
+-- note that this makes every run readable by anyone who knows its id:
 --
 -- create policy "anyone can read runs"  on runs  for select using (true);
 -- create policy "anyone can read steps" on steps for select using (true);
@@ -80,7 +84,11 @@ alter table steps enable row level security;
 -- Vector search means "find me things that MEAN something similar", instead of
 -- "find me things that contain this exact word".
 
-create extension if not exists vector;
+-- Supabase asks you to install extensions into the `extensions` schema rather
+-- than `public`, so they don't clutter the tables the Data API exposes. You
+-- still write `vector(768)` below without qualifying it — `extensions` is
+-- already on the search_path.
+create extension if not exists vector with schema extensions;
 
 create table if not exists memories (
   id          bigserial primary key,

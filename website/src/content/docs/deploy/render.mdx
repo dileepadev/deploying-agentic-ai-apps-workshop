@@ -56,7 +56,7 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
+      - key: SUPABASE_SECRET_KEY
         sync: false
 
       - key: GEMINI_MODEL
@@ -86,7 +86,7 @@ Dashboard → your service → **Environment**.
 |---|---|---|
 | `GEMINI_API_KEY` | yes | from AI Studio |
 | `SUPABASE_URL` | yes | no trailing slash |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | the `service_role` key, not `anon` |
+| `SUPABASE_SECRET_KEY` | yes | the `sb_secret_…` key, not the publishable one. On a pre-rename project, the legacy `service_role` key works here too |
 | `GEMINI_MODEL` | no | defaults to `gemini-flash-latest` |
 | `MAX_AGENT_STEPS` | no | defaults to 12 |
 | `ALLOWED_ORIGINS` | no | comma-separated, no trailing slash |

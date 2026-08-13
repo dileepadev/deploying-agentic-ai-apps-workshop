@@ -21,9 +21,16 @@ from app import config
 # PostgREST exposes every table as a URL: /rest/v1/runs, /rest/v1/steps, ...
 REST_URL = f"{config.SUPABASE_URL}/rest/v1"
 
+# The key goes on `apikey` and nowhere else.
+#
+# Plenty of older examples also send `Authorization: Bearer <key>`. That was
+# fine when every key was a JWT, but the current secret keys (`sb_secret_...`)
+# are opaque strings, not JWTs — put one in a Bearer header and you're handing
+# the gateway something it has to reject. Supabase's gateway builds the
+# Authorization header itself from `apikey`, so sending it is redundant with
+# the old keys and actively wrong with the new ones.
 _HEADERS = {
-    "apikey": config.SUPABASE_SERVICE_ROLE_KEY,
-    "Authorization": f"Bearer {config.SUPABASE_SERVICE_ROLE_KEY}",
+    "apikey": config.SUPABASE_SECRET_KEY,
     "Content-Type": "application/json",
 }
 

@@ -12,7 +12,7 @@ import os
 # import time and would otherwise refuse to load.
 os.environ.setdefault("GEMINI_API_KEY", "test-key-not-real")
 os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
-os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-key-not-real")
+os.environ.setdefault("SUPABASE_SECRET_KEY", "sb_secret_test-key-not-real")
 
 import pytest
 

@@ -83,10 +83,24 @@ Open `.env` and fill in three values:
 | Variable | Where to get it |
 |---|---|
 | `GEMINI_API_KEY` | [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) → *Create API key* |
-| `SUPABASE_URL` | Supabase → Project Settings → API → *Project URL* |
-| `SUPABASE_SERVICE_ROLE_KEY` | same page, the **service_role** key |
+| `SUPABASE_URL` | Supabase → **Connect** (top of the dashboard) → *Project URL* |
+| `SUPABASE_SECRET_KEY` | Supabase → **Settings → API Keys** → *Secret keys* → starts with `sb_secret_` |
 
-<Aside type="danger" title="The service_role key bypasses every database security rule">
+<Aside type="note" title="If your project only offers `anon` and `service_role`">
+
+
+Supabase renamed and reworked its keys: `anon` became the **publishable** key
+(`sb_publishable_…`) and `service_role` became the **secret** key
+(`sb_secret_…`). Projects created before the change may still show only the
+old pair, under the **Legacy API Keys** tab.
+
+Those keep working until Supabase retires them at the end of 2026. Paste the
+`service_role` key into `SUPABASE_SECRET_KEY` and carry on — everything in
+this workshop behaves the same.
+
+</Aside>
+
+<Aside type="danger" title="The secret key bypasses every database security rule">
 
 
 It belongs on your server and nowhere else. Never in frontend code, a

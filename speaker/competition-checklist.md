@@ -24,8 +24,9 @@ share the repo link so participants can come back to it.
 
 ## Free-tier survival
 
-- [ ] **Ping your Supabase project weekly** — free projects pause when idle, and a
-      paused project on judging day looks exactly like a broken one
+- [ ] **Ping your Supabase project daily** — free projects pause when activity stays
+      low over a 7-day window, and a paused project on judging day looks exactly
+      like a broken one. A few requests a day is enough to prevent it
 - [ ] **Warm your backend before any demo or judging** — free hosts spin down when
       idle and cold-start takes roughly a minute
 - [ ] Handle `429 Too Many Requests` with retry + backoff; free tiers rate-limit hard

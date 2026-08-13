@@ -153,15 +153,16 @@ IPv6-or-pooler-port surprises on free hosting. It's just HTTPS.
 
 **Where it is.** `app/db.py`, `database/schema.sql`.
 
-**What it costs.** Free, but **projects pause after about a week of
-inactivity** and need a manual resume.
+**What it costs.** Free, but **projects pause when database activity stays low
+across a 7-day window** and need a manual resume. You get 90 days to restore a
+paused project before its backup is dropped.
 
-<Aside type="caution" title="Ping it weekly">
+<Aside type="caution" title="Ping it daily">
 
 
-A paused database on demo day looks exactly like a broken app. If this
-project matters to you beyond the workshop, hit it once a week — a
-scheduled GitHub Action is enough.
+A paused database on demo day looks exactly like a broken app. A few requests
+a day is enough to keep it awake, so if this project matters to you beyond the
+workshop, hit it on a schedule — a daily GitHub Action is enough.
 
 </Aside>
 

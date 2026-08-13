@@ -33,7 +33,9 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
+      # The `sb_secret_...` key. On an older project that only has the legacy
+      # keys, SUPABASE_SERVICE_ROLE_KEY still works instead.
+      - key: SUPABASE_SECRET_KEY
         sync: false
 
       # Not secret — safe to keep in the file.

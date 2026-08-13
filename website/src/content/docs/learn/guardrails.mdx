@@ -67,30 +67,39 @@ judgement entirely, and it is the highest-value guardrail in the project.
 
 ## 3. Database permissions, not trust
 
-Supabase gives you two keys, and the difference between them matters more than
-anything else in your `.env`:
+Supabase gives you two kinds of key, and the difference between them matters
+more than anything else in your `.env`:
 
 | Key | Where it belongs | What it can do |
 |---|---|---|
-| `anon` | safe in a browser | only what RLS policies allow |
-| `service_role` | **server only** | **bypasses all Row Level Security** |
+| `sb_publishable_…` | safe in a browser | only what RLS policies allow |
+| `sb_secret_…` | **server only** | **bypasses all Row Level Security** |
 
-Our backend uses `service_role`, so it can do everything. We turn RLS on anyway,
-with no policies — default-deny — so that if the public `anon` key ever leaks,
-it grants nothing at all.
+These replaced the older `anon` and `service_role` JWT keys — same two roles,
+clearer names. Pre-rename projects still carry the legacy pair, and it keeps
+working until Supabase retires it at the end of 2026.
+
+Our backend uses the secret key, so it can do everything. We turn RLS on anyway,
+with no policies — default-deny — so that if the publishable key ever leaks, it
+grants nothing at all.
 
 ```sql title="database/schema.sql"
 alter table runs  enable row level security;
 alter table steps enable row level security;
 ```
 
-<Aside type="danger" title="The service_role key bypasses every security rule you write">
+<Aside type="danger" title="The secret key bypasses every security rule you write">
 
 
 It belongs on your server and nowhere else. Not in frontend code, not in a
 screenshot, not in a commit, not pasted into a chat. If it ever lands in
 any of those, **rotate it immediately** — the old one stays valid until you
 do.
+
+Two things the new secret keys give you here that `service_role` never did:
+they're rejected outright when used from a browser (Supabase matches on the
+`User-Agent`), and you can issue one per backend service, so a leak forces you
+to rotate one key rather than everything at once.
 
 </Aside>
 
