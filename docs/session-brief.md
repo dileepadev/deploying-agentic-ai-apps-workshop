@@ -1,7 +1,7 @@
-# Session Brief — for the organizing team
+# Session brief
 
-Everything the organizers need for promo material, the agenda, and the participant
-prerequisites email. Copy-paste ready.
+An example brief for the organizing team — promo material, the agenda, and the
+participant prerequisites email. Copy-paste ready.
 
 ---
 
@@ -90,9 +90,10 @@ a live "agent is thinking…" UI, and your keys out of GitHub.
 
 ---
 
-## Prerequisites (please send to participants by Wednesday)
+## Prerequisites (send to participants as early as possible)
 
-See [`prerequisites-message.md`](prerequisites-message.md) for the copy-paste version.
+See [`prerequisites-checklist.md`](prerequisites-checklist.md) for the copy-paste
+version.
 
 Participants should arrive with **accounts already created** — signups eat 15 minutes
 of a 90-minute session:
@@ -112,4 +113,4 @@ of a 90-minute session:
   shared conference Wi-Fi is a coin flip.
 - **HDMI/USB-C to the projector**, tested before the session starts.
 - Ability to display a **QR code slide** large enough to scan from the back row.
-- The prerequisites message sent to participants **by Wednesday 12 Aug**.
+- The prerequisites message sent to participants **at least two days ahead**.

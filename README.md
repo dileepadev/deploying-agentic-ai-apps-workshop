@@ -30,7 +30,7 @@ GET  /runs/abc    →  {status, steps[]}            client polls every 1.5 s
 | --- | --- |
 | want to learn this properly | **[the workshop website](website/src/content/docs/index.mdx)** — Learn → Build → Deploy |
 | want it running in 5 minutes | [Quick start](#quick-start) below |
-| are presenting it | [`speaker/`](speaker/) |
+| are running it yourself | [`docs/`](docs/) — run of show, prep, prerequisites |
 | want the slides | [`slides/index.html`](slides/index.html) — open it, no build step |
 
 The website is the main thing. It's written so someone who wasn't in the room
@@ -91,7 +91,7 @@ uv run fastmcp dev app/tools/server.py       # poke the MCP tools in the Inspect
 ├── tests/                12 tests that need no API key
 ├── slides/               the deck
 ├── website/              the workshop website + slides route (Astro)
-└── speaker/              run of show, prep notes — presenter only
+└── docs/                 run of show, prep, prerequisites, free-tier notes
 ```
 
 ## The stack

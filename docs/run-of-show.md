@@ -1,4 +1,7 @@
-# Run of Show — 90 minutes
+# Run of show — 90 minutes
+
+An example timing plan and live-demo runbook. Treat the minute marks as a starting
+point, not a script.
 
 **The one idea.** Everything in this session is downstream of a single sentence:
 
