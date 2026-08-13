@@ -1,0 +1,188 @@
+---
+title: Step 4 · The agent loop, by hand
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+<div class="stepbar" data-step="4" data-total="8">
+  <span class="stepbar-label">Step 4 of 8</span>
+  <span class="stepbar-track"><span class="stepbar-fill" style="width:50%"></span></span>
+  <span class="stepbar-done">The loop by hand</span>
+</div>
+
+
+
+## Objective
+
+Make the model actually do research — with no framework, so you can see every
+moving part.
+
+## Why this step exists
+
+A framework hides the loop, and the loop is the thing you need to see once. In
+this step you write it explicitly. In [step 5](../05-framework/) you throw it
+away and let a framework do it, and the comparison is the point.
+
+## What an "AI API call" actually is
+
+Strip away the SDKs and it's this: you POST some JSON to a URL with your API key
+in a header, and you get JSON back.
+
+```python title="app/llm.py"
+body = {
+    "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+    "generationConfig": {"temperature": 0.4},
+}
+if system:
+    body["systemInstruction"] = {"parts": [{"text": system}]}
+
+url = f"{BASE_URL}/models/{config.GEMINI_MODEL}:generateContent"
+response = await _client.post(url, json=body)
+```
+
+That's the whole thing. Everything else in `llm.py` is retry logic and pulling
+the text out of the response envelope.
+
+<Aside type="tip" title="Retries are not optional on a free tier">
+
+
+`429 Too Many Requests` is normal, not exceptional. `llm.py` retries with
+exponential backoff (2s, 4s, 8s) on `429` and `5xx`, and gives up
+immediately on `400`/`403`/`404` — because those mean *you* got something
+wrong and retrying won't help.
+
+An agent without retry logic looks broken when it is merely impatient.
+
+</Aside>
+
+## The loop
+
+Open `app/agent/manual_loop.py`. Four explicit phases:
+
+```python title="app/agent/manual_loop.py"
+async def run(query: str, log=print) -> str:
+    # 1. Plan — ask the model what to search for
+    log("Planning the research")
+    plan = await llm.generate_json(f"Question: {query}", system=PLANNER_SYSTEM)
+    searches = [str(s) for s in plan.get("searches", [])][:3] or [query]
+
+    # 2. Search — run each query
+    titles = []
+    for search_query in searches:
+        log(f'Searching for: "{search_query}"')
+        for title in await wikipedia.search(search_query, limit=2):
+            if title not in titles:
+                titles.append(title)
+
+    # 3. Read — fetch summaries
+    log(f"Reading {len(titles)} sources")
+    sources = [p for t in titles[:5] if (p := await wikipedia.read_page(t))]
+
+    # 4. Write — hand everything to the model
+    log(f"Writing the answer from {len(sources)} sources")
+    context = "\n\n".join(f"### {s['title']}\n{s['extract']}" for s in sources)
+    return await llm.generate(f"Question: {query}\n\nSources:\n{context}",
+                              system=WRITER_SYSTEM)
+```
+
+Notice the JSON trick in phase 1 — asking Gemini for `responseMimeType:
+application/json` means you get parseable JSON instead of writing a fragile
+"find the JSON inside this markdown" parser.
+
+## Run it
+
+```bash
+uv run python -m app.agent.manual_loop "how do solar panels actually work?"
+```
+
+## Expected result
+
+Thirty to sixty seconds of output, then an answer:
+
+```text
+  Question: how do solar panels actually work?
+
+  · Planning the research
+  · Searching for: "photovoltaic effect"
+  · Searching for: "solar cell efficiency"
+  · Reading 4 sources
+  · Writing the answer from 4 sources
+
+Solar panels work by converting sunlight directly into electricity using the
+photovoltaic effect...
+
+Sources: Solar cell, Photovoltaics, ...
+```
+
+**Time it.** That number — 30, 45, 60 seconds — is the number that breaks
+everything in [step 6](../06-the-wrong-way/).
+
+## The limitation, and it's the important bit
+
+This works. It also **cannot adapt**.
+
+We decided the order: plan, then search, then read, then write. Exactly once
+each. If the first search returns nothing useful, the model has no way to try
+again — we never gave it the chance.
+
+That's a *pipeline*, not an agent. The distinction:
+
+| | This file | [Step 5](../05-framework/) |
+|---|---|---|
+| Who decides what to search? | the model | the model |
+| Who decides **how many times**? | **you, in advance** | **the model** |
+| Can it search again after reading? | no | yes |
+| Can it stop early? | no | yes |
+
+Who owns the control flow is the whole difference between "a script that calls
+an LLM" and "an agent".
+
+## What usually goes wrong
+
+<details>
+<summary><code>404</code> from Gemini</summary>
+
+
+Model names get retired. Check what's current at
+[https://aistudio.google.com](https://aistudio.google.com) and set `GEMINI_MODEL` in `.env`. The default
+is `gemini-flash-latest`, an alias that shouldn't 404 — if you pinned a
+specific version, that's the likely cause.
+
+</details>
+
+<details>
+<summary><code>429 Too Many Requests</code> even with retries</summary>
+
+
+Free-tier limits are per key, per minute. One run is 2–4 model calls. If
+you're still hitting it, you're sharing a key with someone.
+
+</details>
+
+<details>
+<summary><code>Model did not return valid JSON</code></summary>
+
+
+The planner returned prose instead of JSON. Usually a safety filter or a
+model that ignored the format request. The code already falls back to using
+your raw question as the search query — so this degrades rather than fails.
+
+</details>
+
+<details>
+<summary>It takes 90+ seconds</summary>
+
+
+Normal on a cold free tier. Note the number; you'll want it for step 6.
+
+</details>
+
+## What's next
+
+Now hand the same job to a framework and let the model drive.
+
+<div class="stepnav">
+  <a href="../03-tools/">← Step 3 · Tools over MCP</a>
+  <span class="spacer"></span>
+  <a href="../05-framework/">Step 5 · With a framework →</a>
+</div>

@@ -1,0 +1,261 @@
+---
+title: Troubleshooting
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+The things that actually go wrong, in roughly the order people hit them.
+
+## Local
+
+<details>
+<summary><code>RuntimeError: Missing environment variable: GEMINI_API_KEY</code></summary>
+
+
+Working as designed — config fails loudly at startup rather than
+mysteriously at request time.
+
+- Is `.env` in the **repo root**, not in `app/`?
+- Any quotes around the value? Don't quote them.
+- Deployed? Environment changes need a **redeploy** to take effect.
+
+</details>
+
+<details>
+<summary><code>ModuleNotFoundError: No module named 'app'</code></summary>
+
+
+Run from the repo root, not from inside `app/`. Use `uv run …` so imports
+resolve from the project root.
+
+</details>
+
+<details>
+<summary><code>uv: command not found</code></summary>
+
+
+The installer wrote to a shell profile your current terminal hasn't read.
+Open a new terminal, or `source ~/.zshrc` / `source ~/.bashrc`.
+
+</details>
+
+<details>
+<summary>Tests fail with connection errors</summary>
+
+
+They shouldn't — the suite needs no network and no keys. If they're hitting
+the network, something in the code under test lost its mock. Run
+`uv run --extra dev pytest -v` and check which test.
+
+</details>
+
+## The database
+
+<details>
+<summary><code>/health</code> says <code>database: false</code></summary>
+
+
+In order of likelihood:
+
+1. You haven't run `database/schema.sql` yet.
+2. `SUPABASE_URL` has a trailing slash, or isn't the
+   `https://xxx.supabase.co` project URL.
+3. You used the `anon` key instead of `service_role`. The anon key is
+   blocked by the RLS you enabled — which is exactly its job.
+4. The project is **paused**.
+
+</details>
+
+<details>
+<summary>Everything worked yesterday, today nothing does</summary>
+
+
+Free Supabase projects pause after about a week of inactivity. Open the
+dashboard and resume.
+
+**This is the single most common way a workshop project dies.** A paused
+database looks identical to a broken app.
+
+</details>
+
+??? failure "`extension \"vector\" is not available`"
+
+    Supabase ships pgvector, so this means you're on plain Postgres elsewhere.
+    Either install the extension or delete the `memories` block — nothing else
+    depends on it.
+
+## The model
+
+<details>
+<summary><code>404</code> from Gemini</summary>
+
+
+Model names get retired and the error is unhelpfully generic. Check what's
+current at [https://aistudio.google.com](https://aistudio.google.com) and set `GEMINI_MODEL`.
+
+The default is `gemini-flash-latest`, an alias that shouldn't 404. If you
+pinned a specific version, that's almost certainly the cause.
+
+</details>
+
+<details>
+<summary><code>429 Too Many Requests</code></summary>
+
+
+Free-tier limits are **per key**, per minute, per day, and per token. One
+agent run is 5–10 model calls.
+
+`app/llm.py` already retries with backoff. If you're still hitting it,
+you're sharing a key — everyone needs their own.
+
+</details>
+
+<details>
+<summary><code>Empty response from model (finishReason=...)</code></summary>
+
+
+Usually a safety filter, or the model spent its whole budget thinking. The
+`finishReason` in the message tells you which.
+
+</details>
+
+## The agent
+
+<details>
+<summary>A run sits at <code>running</code> forever</summary>
+
+
+Either it's genuinely still working — check the `steps` table for the most
+recent row — or the server process restarted mid-run and took the
+`BackgroundTasks` job with it.
+
+That's the known limitation of `BackgroundTasks`; see
+[the upgrade path](../../learn/deployment-problem/#the-catch-nobody-mentions).
+
+Worth adding: mark runs stuck at `running` for >10 minutes as failed, so the
+UI stops spinning.
+
+</details>
+
+<details>
+<summary><code>RuntimeError: Agent exceeded 12 steps</code></summary>
+
+
+A guardrail doing its job. Either the question genuinely needs more research
+(raise `MAX_AGENT_STEPS`) or the agent is looping — check `steps` to see
+whether it's repeating the same search.
+
+</details>
+
+<details>
+<summary>The agent calls the same tool repeatedly</summary>
+
+
+Your instructions or tool docstrings are too vague. Both are prompt.
+Tightening the `Args:` descriptions is usually the whole fix.
+
+</details>
+
+## The browser
+
+??? failure "\"Failed to fetch\""
+
+    Almost always CORS.
+
+    - Set `ALLOWED_ORIGINS` to your frontend's origin, **no trailing slash**:
+      `https://yourname.github.io`
+    - Redeploy after changing it.
+    - Check you're not calling an `http://` backend from an `https://` page —
+      browsers block mixed content.
+    - `allow_origins=["*"]` with `allow_credentials=True` is **silently rejected
+      by browsers**. If you need credentials, list real origins.
+
+<details>
+<summary>It works locally, fails when deployed</summary>
+
+
+Nine times out of ten it's CORS or a missing environment variable. Check
+`/health` on the deployed URL first — that isolates "is the service alive"
+from "can the browser talk to it".
+
+</details>
+
+## Deployment
+
+<details>
+<summary>Build fails: <code>uv: command not found</code></summary>
+
+
+Render's Python image doesn't ship uv. The build command needs
+`pip install uv && uv sync --frozen`.
+
+</details>
+
+<details>
+<summary>Build succeeds, service never starts</summary>
+
+
+Check the start command binds `0.0.0.0`, not `127.0.0.1`. Inside a container
+that's the difference between reachable and invisible, and it shows up as a
+port-scan timeout.
+
+</details>
+
+<details>
+<summary>First request takes a minute</summary>
+
+
+Free-tier cold start. Not a bug. Hit `/health` ten minutes before a demo.
+
+</details>
+
+---
+
+## Keeping a free stack alive
+
+The four things that will silently break a project you're not touching daily:
+
+| What | When | Fix |
+|---|---|---|
+| Supabase pauses | ~1 week idle | Ping weekly, or resume manually |
+| Render spins down | ~15 min idle | Hit `/health` before demos |
+| Gemini key rate-limits | per minute / day | Your own key; retry with backoff |
+| Disk is wiped | every restart | Never write to disk; use Postgres |
+
+### A weekly keep-alive
+
+A scheduled GitHub Action is enough to stop Supabase pausing:
+
+```yaml title=".github/workflows/keepalive.yml"
+name: Keep the stack awake
+on:
+  schedule:
+    - cron: "0 6 * * 1"      # Mondays, 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -sS --fail --max-time 120 "${{ secrets.BACKEND_URL }}/health"
+```
+
+`/health` queries the database, so one request keeps both the backend and
+Supabase awake. Add `BACKEND_URL` to your repo secrets.
+
+<Aside type="caution" title="Cold starts make this slow, not broken">
+
+
+`--max-time 120` is deliberate: the first request after a spin-down can take
+a minute. A shorter timeout makes this action fail every week for no reason.
+
+</Aside>
+
+### Before any demo
+
+- [ ] Hit `/health` — confirm `ok: true` **and** `database: true`
+- [ ] Run one real query end to end
+- [ ] Open the live URL in an **incognito window** (catches "works because I'm
+      logged in" and cache lies)
+- [ ] Open it on a **phone**
+- [ ] Have a recording as a fallback

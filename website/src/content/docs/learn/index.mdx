@@ -1,0 +1,45 @@
+---
+title: Learn
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+Seven short pages, in order. They exist to give you enough context to understand
+what we're deploying and why it's hard — not to be a complete course on agentic
+AI.
+
+That's deliberate. **The deployment is the point.** These pages move fast so you
+can get to it.
+
+## The through-line
+
+They're written as one argument, not seven topics. Each page ends by raising the
+question the next one answers:
+
+| # | Page | The question it answers | Which leaves you asking |
+|---|---|---|---|
+| 1 | [From chatbot to agent](agents/) | What actually changes when the model can act? | *What is this loop made of?* |
+| 2 | [Anatomy of an agent](anatomy/) | What are the parts, and which file is each one? | *How does a model "use" a function?* |
+| 3 | [Tool calling](tool-calling/) | How does the model act on the world? | *Who else could use my tools?* |
+| 4 | [MCP](mcp/) | Why a protocol instead of just calling the function? | *What does it remember between turns?* |
+| 5 | [Memory and RAG](memory/) | What lasts one run, and what outlives it? | *What makes it stop?* |
+| 6 | [Guardrails](guardrails/) | How do you stop an agent doing damage? | *What if nothing goes wrong and it still breaks?* |
+| 7 | [Why deployment is hard](deployment-problem/) | **The Timeout Trap.** The spine of the whole workshop. | → [Build](../build/) |
+
+Read top to bottom and it should feel like one thing leading to the next. If a
+page ever feels like it arrived from nowhere, that's a bug — the last section of
+the page before it is meant to have set it up.
+
+**Page 2 is the map.** It names the six parts of an agent, and pages 3–7 are
+each a deep dive into one of them. If you get lost, go back to it.
+
+<Aside type="tip" title="Short on time?">
+
+
+Read **1** and **7**, then go to [Build](../build/). Those two carry the
+argument on their own; pick up the rest when a build step references them.
+
+</Aside>
+
+Each page ends with *how we actually use this in the demo* and a link to the
+file it lives in, so the theory always lands somewhere concrete.

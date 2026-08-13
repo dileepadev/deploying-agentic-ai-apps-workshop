@@ -1,0 +1,183 @@
+---
+title: Step 6 · Wire it up the wrong way
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+<div class="stepbar" data-step="6" data-total="8">
+  <span class="stepbar-label">Step 6 of 8</span>
+  <span class="stepbar-track"><span class="stepbar-fill" style="width:75%"></span></span>
+  <span class="stepbar-done">The wrong way</span>
+</div>
+
+
+
+<Aside type="caution" title="This step builds a bug on purpose">
+
+
+Everything here is what you should **not** ship. Step 7 fixes it. Don't skip
+ahead — the fix only makes sense once you've felt the problem.
+
+</Aside>
+
+## Objective
+
+Put the agent behind an HTTP endpoint the obvious way, and watch it fail.
+
+## Why this step exists
+
+You can be told that long requests time out. It doesn't land. Watching your own
+browser hang for 45 seconds and then produce nothing does.
+
+This is the version everyone writes first, including people who know better.
+
+## The obvious implementation
+
+```python title="app/main.py"
+@app.post("/runs/naive")
+async def create_run_naive(body: RunRequest):
+    run_id = await db.create_run(body.query)
+    await research.run_agent(run_id, body.query)   # ← THE BUG: blocks 30-60s
+    run = await db.get_run(run_id)
+    return {"run": run, "steps": await db.get_steps(run_id)}
+```
+
+That single `await` is the whole problem: the request cannot return until the
+agent finishes. Everything else on this page follows from it.
+
+It's clean, readable, and correct in the sense that it produces the right
+answer. It is also unshippable.
+
+## Try it
+
+Start the server:
+
+```bash
+uv run fastapi dev app/main.py
+```
+
+Open `client/index.html` in your browser — double-clicking the file works. Leave
+the backend URL as `http://localhost:8000`, **tick the "Naive mode" checkbox**,
+and ask a question.
+
+Now watch. And keep watching.
+
+## Expected result
+
+**On localhost: it works.** Forty-five seconds of nothing, then the answer
+appears all at once.
+
+That's the trap. It works perfectly on your machine, which is why people ship it.
+
+Two things to notice:
+
+1. **You had no idea whether it was working.** No progress, no feedback, no way
+   to tell a slow run from a crashed one. Try it and resist the urge to look at
+   the terminal — that's your user's experience.
+2. **Nothing between you and the server was impatient.** There's no proxy, no
+   load balancer, no CDN on localhost. That's the *only* reason it survived.
+
+## Where it actually breaks
+
+Deploy this and something in the chain gives up before your agent does:
+
+```text
+Browser  →  CDN  →  Load balancer  →  Reverse proxy  →  Your server
+             ↑           ↑                  ↑
+          timeout     timeout            timeout
+```
+
+You'll see:
+
+```text
+504 Gateway Timeout
+```
+
+<Aside type="danger" title="The work may have finished anyway">
+
+
+The nastiest part: your agent might complete successfully *after* the proxy
+gave up. The answer exists in your database. The user got a 504 and will
+never see it.
+
+You spent the tokens and delivered nothing.
+
+</Aside>
+
+## Can you see it locally?
+
+Yes — put a proxy in front with a short timeout:
+
+```bash
+# If you have nginx, or any proxy with a 30s read timeout:
+#   proxy_read_timeout 30s;
+```
+
+Or simulate it with curl, which is quicker:
+
+```bash
+curl -m 30 -X POST http://localhost:8000/runs/naive \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"how do solar panels actually work?"}'
+```
+
+```text
+curl: (28) Operation timed out after 30001 milliseconds
+```
+
+Your server is still working. The client has already given up. **That gap is the
+entire problem.**
+
+## "Just raise the timeout"
+
+Sometimes you can, a bit. It still doesn't work:
+
+- You don't control every hop — corporate proxies, mobile carriers, CDNs.
+- A phone switching from Wi-Fi to mobile data drops the connection regardless.
+- You're renting a request for 45 seconds. A few concurrent users and your free
+  instance is out of workers; everyone queues, then everyone times out.
+- Even when it works, the user still stares at a spinner learning nothing.
+
+Raising the timeout doesn't remove the wall. It moves it, and makes failure
+slower and more expensive.
+
+## What usually goes wrong
+
+<details>
+<summary>It returns instantly instead of hanging</summary>
+
+
+You forgot to tick **Naive mode**, so you hit `/runs` — which is already the
+fixed version. Untick and retick, and check the request in your browser's
+network tab: it should be `POST /runs/naive`.
+
+</details>
+
+<details>
+<summary>The browser shows a CORS error instead of hanging</summary>
+
+
+You're opening the file over `file://` and the browser is being strict.
+Serve it instead: `python3 -m http.server 8080` from the `web/` folder, then
+open [http://localhost:8080](http://localhost:8080).
+
+</details>
+
+<details>
+<summary>It fails immediately with a 500</summary>
+
+
+That's a different problem — check the terminal. A missing key or a paused
+database will fail fast, and you want the slow failure here.
+
+</details>
+
+## What's next
+
+Now fix it. The change is smaller than you'd think.
+
+<div class="stepnav">
+  <a href="../05-framework/">← Step 5 · With a framework</a>
+  <span class="spacer"></span>
+  <a href="../07-accept-and-poll/">Step 7 · Accept and poll →</a>
+</div>

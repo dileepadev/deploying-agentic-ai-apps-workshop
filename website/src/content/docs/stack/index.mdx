@@ -1,0 +1,219 @@
+---
+title: The stack
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+Every choice here had to clear the same bar: **free without a credit card, and
+reproducible by someone following along weeks later.** That rules out a lot of
+otherwise-better options, and it's the right constraint for learning.
+
+| Layer | We use | Why, in one line |
+|---|---|---|
+| Language | Python 3.11+ | What the AI ecosystem is written in |
+| Package manager | [uv](#uv) | One tool instead of four, and a lockfile |
+| API framework | [FastAPI](#fastapi) | Async, typed, free interactive docs |
+| Agent framework | [Pydantic AI](#pydantic-ai) | Feels like FastAPI; not tied to one model vendor |
+| Tool protocol | [FastMCP](#fastmcp) | Makes the tools usable outside our app |
+| Model | [Gemini](#gemini) | The only real no-card free tier |
+| Database | [Supabase](#supabase) | Free Postgres with pgvector built in |
+| Backend host | [Render](#render) | Free web services, deploys from GitHub |
+| Frontend host | [GitHub Pages](#github-pages) | Free, and makes CORS real |
+
+---
+
+## uv
+
+**What it is.** A Python package and project manager — it replaces `pip`,
+`venv`, `pip-tools`, and `pyenv` with one tool.
+
+**Why we chose it.** The single most common way a tutorial fails is "it worked
+for the author". `uv sync` reads `pyproject.toml` and `uv.lock` and builds the
+*exact* environment this project was tested with, down to the Python version.
+No activate step to forget.
+
+**Where it is.** `pyproject.toml`, `uv.lock`, `.python-version` at the repo root.
+
+```bash
+uv sync                          # create the environment
+uv run fastapi dev app/main.py   # run something in it
+```
+
+**What it costs.** Nothing, open source.
+
+---
+
+## FastAPI
+
+**What it is.** A Python web framework for building APIs.
+
+**Why we chose it.** Three things matter here: it's `async`, which suits waiting
+on slow model calls; it validates requests from type hints, which is a free
+guardrail; and it generates interactive docs at `/docs` so you can test your
+deployed agent from a browser without writing a client.
+
+**Where it is.** `app/main.py` — five endpoints, and that's the whole API.
+
+**What it costs.** Nothing, open source.
+
+---
+
+## Pydantic AI
+
+**What it is.** An agent framework from the team behind Pydantic (which FastAPI
+is built on).
+
+**Why we chose it.** It was explicitly designed to bring the FastAPI feeling to
+agents, so if you know FastAPI you already know most of it — decorators for
+tools, type hints for schemas, dependency injection for context. It's also
+**model-agnostic**: switching from Gemini to something else is one line, which
+keeps the deployment lesson from expiring alongside a model.
+
+We evaluated LangGraph (more powerful, but graphs and nodes are a second
+architecture to learn), the OpenAI Agents SDK (elegant, but pulls toward a
+provider with no free tier), and Google ADK (natural with Gemini, but leans on
+Google Cloud deployment).
+
+**Where it is.** `app/agent/research.py`.
+
+**What it costs.** Nothing, open source.
+
+<Aside type="note" title="Version pinning matters here">
+
+
+Pydantic AI moves fast — v2 shipped in mid-2026 and is already well into
+2.x. `uv.lock` pins the exact version this project was built against, so
+what you install is what was tested. Don't remove that file.
+
+</Aside>
+
+---
+
+## FastMCP
+
+**What it is.** A Python library for building Model Context Protocol servers.
+
+**Why we chose it.** MCP's official Python SDK had a major version bump very
+recently with renamed core classes; FastMCP is the mature, batteries-included
+layer and Pydantic AI integrates with it directly. For a tutorial that has to
+keep working for months, that stability is worth more than being first.
+
+**Where it is.** `app/tools/server.py`, mounted at `/mcp` in `app/main.py`.
+
+**What it costs.** Nothing, open source.
+
+See [Learn · MCP](../learn/mcp/) for why it's here at all — and where we
+deliberately didn't use it.
+
+---
+
+## Gemini
+
+**What it is.** Google's model family. We use it via **AI Studio**, the
+developer-facing entry point.
+
+**Why we chose it.** It is the only major provider with a genuinely usable free
+tier that doesn't ask for a credit card. For a room full of people who need
+their own keys, that's decisive.
+
+**Where it is.** `app/agent/research.py` builds the model; `app/config.py` holds
+the key and model name.
+
+**What it costs.** Free, with limits on **requests per minute**, **requests per
+day**, and **tokens per minute**. One agent run is 5–10 requests, so a shared
+key rate-limits a room within minutes. **Everyone needs their own.**
+
+<Aside type="tip" title="Why the default model is gemini-flash-latest">
+
+
+Model names get retired, and a retired name returns a confusing 404 rather
+than a useful error. `gemini-flash-latest` is an alias Google keeps pointed
+at the current free Flash model, so the project still works when you come
+back to it in three months.
+
+Pin a specific version in `GEMINI_MODEL` if you'd rather the model stop
+changing under you.
+
+</Aside>
+
+---
+
+## Supabase
+
+**What it is.** Managed Postgres with a REST API, a table editor, and pgvector
+available out of the box.
+
+**Why we chose it.** We get a real relational database *and* vector storage from
+one free signup, plus a table editor you can put on a projector — watching rows
+appear during a run is the moment the architecture clicks for most people.
+
+We talk to it over its REST API rather than a Postgres driver. For a workshop
+that's the right trade: no driver to install, no connection pool to tune, no
+IPv6-or-pooler-port surprises on free hosting. It's just HTTPS.
+
+**Where it is.** `app/db.py`, `database/schema.sql`.
+
+**What it costs.** Free, but **projects pause after about a week of
+inactivity** and need a manual resume.
+
+<Aside type="caution" title="Ping it weekly">
+
+
+A paused database on demo day looks exactly like a broken app. If this
+project matters to you beyond the workshop, hit it once a week — a
+scheduled GitHub Action is enough.
+
+</Aside>
+
+---
+
+## Render
+
+**What it is.** A hosting platform that deploys from a GitHub repo.
+
+**Why we chose it.** Free web services with no credit card, deploys on push, a
+readable build log, and an environment-variables panel that teaches the right
+habit. It's boring in the way infrastructure should be.
+
+**Where it is.** `deploy/render.yaml`.
+
+**What it costs.** Free, with real trade-offs: services **spin down after ~15
+minutes idle** and take about a minute to wake, you get a small CPU slice, and
+the filesystem is **ephemeral** — anything written to disk is gone on restart.
+
+The small CPU slice is the surprise. It's fine here because agent work is
+I/O-bound — you're waiting on the model anyway — but it would be bad for
+anything CPU-heavy.
+
+See also [FastAPI Cloud](../deploy/fastapi-cloud/), which we cover as a second
+deployment path.
+
+---
+
+## GitHub Pages
+
+**What it is.** Free static hosting straight from a repo.
+
+**Why we chose it.** Free, no new signup, and it makes the frontend genuinely
+**cross-origin** from the backend — which means the CORS lesson is real rather
+than theoretical.
+
+**Where it is.** `.github/workflows/deploy-pages.yml` publishes this site, the
+slides, and the demo client together.
+
+**What it costs.** Nothing, with soft bandwidth limits you won't hit.
+
+---
+
+## The honest summary
+
+> Free tier isn't a smaller paid tier. It's a **different set of trade-offs**:
+> your server sleeps, your database pauses, your model rate-limits, and your
+> disk forgets. You're trading money for latency and reliability.
+>
+> That's a fine trade for a demo or a portfolio project. Know that you're
+> making it.
+
+---
+
+**Next:** [Architecture →](architecture/)

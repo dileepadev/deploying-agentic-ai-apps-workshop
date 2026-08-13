@@ -1,0 +1,98 @@
+---
+title: Deploying Agentic AI Applications
+description: Ship a multi-step AI agent on a 100% free stack — without it timing out.
+template: splash
+hero:
+  tagline: Ship your agent on a 100% free stack — without it timing out.
+  actions:
+    - text: Learn the concepts
+      link: ./learn/
+      icon: right-arrow
+      variant: primary
+    - text: Build it yourself
+      link: ./build/
+      icon: rocket
+      variant: secondary
+    - text: Open the slides
+      link: slides/
+      icon: external
+      variant: minimal
+      attrs:
+        target: _blank
+---
+
+import { Aside, Card, CardGrid } from "@astrojs/starlight/components";
+
+Your agent works beautifully on localhost. Then you deploy it, someone clicks
+"Run", and 30 seconds later the request dies with a 504.
+
+This workshop is about the one architectural decision that fixes that — and a
+complete, working, deployed example of it.
+
+## The one idea
+
+> ### Never run the agent inside the HTTP request.
+
+Accept the job, return an ID immediately, do the work in the background, let the
+client poll. Every timeout problem dissolves once that clicks.
+
+```text
+POST /runs        →  202 {"run_id": "abc"}        ~200 ms, always
+[background]      →  agent runs, writing each step to the database
+GET  /runs/abc    →  {status, steps[]}            client polls every 1.5 s
+```
+
+<div class="resume" data-resume></div>
+
+## Where to start
+
+<CardGrid>
+  <Card title="Learn" icon="open-book">
+    Seven short pages covering just enough theory to understand what we're
+    deploying. [Start with the concepts →](learn/)
+  </Card>
+  <Card title="Build" icon="rocket">
+    Eight steps from an empty folder to a public URL, with a progress
+    indicator. [Start building →](build/)
+  </Card>
+  <Card title="Stack" icon="setting">
+    What we used, why, and what each piece costs.
+    [See the stack →](stack/)
+  </Card>
+  <Card title="Deploy" icon="cloud-download">
+    Render, FastAPI Cloud, and keeping a free stack alive.
+    [Deploy it →](deploy/)
+  </Card>
+</CardGrid>
+
+New to all of this? Read Learn pages 1 and 7, then start Build. The other Learn
+pages are useful but you can pick them up as you go.
+
+## What you'll end up with
+
+- A deployed AI agent on your own public URL
+- A web UI that shows *"Agent is searching…"* live, step by step
+- An MCP server you can plug into Claude Desktop or Claude Code
+- Your API keys safely out of GitHub
+- A stack that costs **nothing**
+
+## What it costs
+
+Nothing, and no credit card at any point.
+
+| Layer | Choice | Free tier |
+|---|---|---|
+| Model | Google Gemini via AI Studio | yes, no card |
+| Backend | FastAPI on Render | yes |
+| Database | Supabase Postgres + pgvector | yes |
+| Frontend | Static HTML on GitHub Pages | yes |
+| Agent tools | Wikipedia API | free, no key |
+
+Free tiers have real trade-offs — your server sleeps, your database pauses, your
+model rate-limits. [The Stack section](stack/) is honest about all of them,
+because finding out on demo day is worse.
+
+<Aside type="note" title="This site is the workshop">
+You do not need to have attended the session. Every step is written for someone
+reading it cold, weeks later, with nobody to ask.
+</Aside>

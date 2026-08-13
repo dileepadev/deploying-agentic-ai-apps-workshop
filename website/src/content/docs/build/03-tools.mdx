@@ -1,0 +1,188 @@
+---
+title: Step 3 · The tools, and an MCP server
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+<div class="stepbar" data-step="3" data-total="8">
+  <span class="stepbar-label">Step 3 of 8</span>
+  <span class="stepbar-track"><span class="stepbar-fill" style="width:37.5%"></span></span>
+  <span class="stepbar-done">Tools over MCP</span>
+</div>
+
+
+
+## Objective
+
+Write the two functions the agent will use, then expose them over MCP so other
+AI clients can use them too.
+
+## Why this step exists
+
+Tools before agent, deliberately. A tool is just a function — you can write it,
+call it, and test it with no model involved at all. Getting them working first
+means that when the agent misbehaves in step 5, you already know the tools
+aren't the problem.
+
+## The tools themselves
+
+Open `app/tools/wikipedia.py`. Two functions, plain `httpx`:
+
+```python title="app/tools/wikipedia.py"
+async def search(query: str, limit: int = 3) -> list[str]:
+    """Find Wikipedia page titles matching a query."""
+    try:
+        response = await _client.get(WIKI_API, params={
+            "action": "query", "list": "search",
+            "srsearch": query, "srlimit": limit, "format": "json",
+        })
+        response.raise_for_status()
+        results = response.json().get("query", {}).get("search", [])
+        return [item["title"] for item in results]
+    except Exception:
+        return []
+
+
+async def read_page(title: str) -> dict | None:
+    """Fetch a short summary of one page."""
+    ...
+```
+
+- **Fail politely.** Returning `[]` lets the agent try a different query.
+   Raising would end the whole run. This one line is why a flaky network
+   degrades the answer instead of destroying it.
+
+Two rules doing the heavy lifting:
+
+**Tools should be narrow.** These are read-only and hit one public API. The
+worst a confused agent can do is read the wrong page. Compare that to handing it
+`execute_sql(query)`.
+
+**Fetch summaries, not whole pages.** Feeding an agent full articles is how you
+burn a token budget in three steps.
+
+## Expose them over MCP
+
+Now the same functions, wrapped as an MCP server:
+
+```python title="app/tools/server.py"
+from fastmcp import FastMCP
+from app.tools import wikipedia
+
+mcp = FastMCP(name="research-tools", instructions="...")
+
+@mcp.tool
+async def wiki_search(query: str, limit: int = 3) -> list[str]:
+    """Search Wikipedia and return matching page titles.
+
+    Args:
+        query: What to search for. Specific, factual queries work better
+            than broad ones.
+        limit: How many titles to return.
+    """
+    return await wikipedia.search(query, limit=limit)
+```
+
+<Aside type="note" title="The docstring is the interface">
+
+
+FastMCP builds the tool schema from your type hints and docstring, and sends
+it to whatever model is calling. A vague description means the model uses
+the tool badly. **These docstrings are prompt, not just documentation** —
+which is why they're written more carefully than usual.
+
+</Aside>
+
+## Why bother, when the agent can just call the function?
+
+It can, and in [step 5](../05-framework/) it will — in-process, no protocol, no
+network hop.
+
+MCP is here for a different reason: **once this is deployed, anyone's MCP client
+can use your tools.** Claude Desktop, Claude Code, or a colleague's agent. And
+because the server is mounted inside the FastAPI app, that costs you no extra
+deployment.
+
+```python title="app/main.py"
+app.mount("/mcp", mcp_app)      # one line — it ships with the API
+```
+
+[Learn · MCP](../../learn/mcp/) covers where this is worth it and where it
+isn't — the "isn't" matters as much.
+
+## Try it
+
+Call the tools directly, with no agent and no API key:
+
+```bash
+uv run python -c "
+import asyncio
+from app.tools import wikipedia
+print(asyncio.run(wikipedia.search('photovoltaic effect')))
+"
+```
+
+Then poke at the MCP server with the official Inspector:
+
+```bash
+uv run fastmcp dev app/tools/server.py
+```
+
+That opens a browser UI where you can list the tools and call them by hand.
+
+## Expected result
+
+From the direct call:
+
+```text
+['Photovoltaic effect', 'Photovoltaics', 'Solar cell']
+```
+
+From the Inspector: two tools listed — `wiki_search` and `wiki_read` — with
+their arguments and descriptions, and a **Run** button that returns real
+results.
+
+With the server running, `/mcp` is also live on your local API.
+
+## What usually goes wrong
+
+<details>
+<summary><code>fastmcp dev</code> won't open / Inspector won't connect</summary>
+
+
+The Inspector is a Node tool that `fastmcp` fetches on demand, so it needs
+Node installed and network access. It's optional — if it won't run, the
+direct `python -c` call above proves the same thing, and step 5 exercises
+the tools properly.
+
+</details>
+
+<details>
+<summary>Search returns <code>[]</code> for everything</summary>
+
+
+That's the polite-failure path hiding a real error. Temporarily change the
+`except Exception: return []` to `raise` and run it again to see what's
+actually wrong — usually no network, or a proxy.
+
+</details>
+
+<details>
+<summary><code>ModuleNotFoundError: No module named 'app'</code></summary>
+
+
+Run commands from the **repo root**, not from inside `app/`. `uv run`
+resolves imports relative to the project root.
+
+</details>
+
+## What's next
+
+You have tools. Now something has to decide when to use them — and the clearest
+way to understand that is to write the loop yourself first.
+
+<div class="stepnav">
+  <a href="../02-database/">← Step 2 · The database</a>
+  <span class="spacer"></span>
+  <a href="../04-manual-loop/">Step 4 · The loop by hand →</a>
+</div>

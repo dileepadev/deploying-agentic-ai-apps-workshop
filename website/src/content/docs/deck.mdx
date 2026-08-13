@@ -1,0 +1,85 @@
+---
+title: Slides
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+The deck from the live session. It's a self-contained web page — no build step,
+works offline, and prints to PDF.
+
+<p>
+  <a class="slides-cta" href="../slides/" target="_blank" rel="noopener">
+    Open Slides ↗
+  </a>
+</p>
+
+Opens in a new tab so you don't lose your place here.
+
+---
+
+## Driving the deck
+
+| Key | |
+|---|---|
+| <kbd>→</kbd> <kbd>←</kbd> <kbd>space</kbd> | navigate |
+| <kbd>a</kbd> | jump to the agenda from anywhere |
+| <kbd>n</kbd> | speaker notes — every slide has them |
+| <kbd>o</kbd> | slide overview / jump to any slide |
+| <kbd>t</kbd> | session timer, with an on-pace target |
+| <kbd>f</kbd> | fullscreen |
+| <kbd>p</kbd> | print → save as PDF |
+| <kbd>Home</kbd> <kbd>End</kbd> | first / last slide |
+| <kbd>?</kbd> | key list |
+
+There are also on-screen controls bottom-right — previous, next, agenda,
+overview, notes. They stay faint until you move the mouse. On a phone, swipe
+left and right.
+
+<Aside type="tip" title="The agenda slide is clickable">
+
+
+Slide 3 lists the six blocks; every row jumps to that section. Press
+<kbd>a</kbd> to get back to it at any point — the block you came from stays
+marked, which is useful when a question sends you sideways.
+
+</Aside>
+
+---
+
+## What's in it
+
+| Slides | Block | Read alongside |
+|---|---|---|
+| 1–5 | Intro, agenda, what we're building | [Anatomy of an agent](../learn/anatomy/) · [Architecture](../stack/architecture/) |
+| 6–13 | The wall — generative vs agentic, the Timeout Trap | [From chatbot to agent](../learn/agents/) · [Why deployment is hard](../learn/deployment-problem/) |
+| 14–22 | The pattern — accept and poll, secrets | [Why deployment is hard](../learn/deployment-problem/) |
+| 23–30 | Memory, state, guardrails | [Memory and RAG](../learn/memory/) · [Guardrails](../learn/guardrails/) |
+| 31–33 | Live deploy | [Build step 8](../build/08-deploy/) · [Render](../deploy/render/) |
+| 34–36 | Wrap-up and checklist | [Troubleshooting](../deploy/troubleshooting/) |
+
+36 slides, about 90 minutes with demos.
+
+---
+
+## Slides vs this site
+
+They're deliberately different, not two copies of the same thing.
+
+**The slides** are built for a room: big type, one idea per slide, a live demo in
+the middle. They assume someone is talking over them.
+
+**This site** is built for you alone, weeks later: full explanations, working
+code, copy-pasteable commands, and the troubleshooting that a live session never
+has time for.
+
+If you attended and want the reference, you want [Learn](../learn/). If you
+want to rebuild it, you want [Build](../build/). The deck is best as a quick
+visual reminder of the shape of the argument.
+
+---
+
+## Offline copy
+
+Open the deck and press <kbd>p</kbd> to print it to PDF. Worth doing before you rely on
+it — the deck also serves as the backup when a projector, a network, or a laptop
+misbehaves.

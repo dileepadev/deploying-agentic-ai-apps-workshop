@@ -1,0 +1,197 @@
+---
+title: Step 8 · Deploy
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+<div class="stepbar" data-step="8" data-total="8">
+  <span class="stepbar-label">Step 8 of 8</span>
+  <span class="stepbar-track"><span class="stepbar-fill" style="width:100%"></span></span>
+  <span class="stepbar-done">Deploy</span>
+</div>
+
+
+
+## Objective
+
+Get a public URL, with your secrets in the platform rather than the repo.
+
+## Why this step exists
+
+It's the point of the whole workshop. Everything before this was so that this
+step works.
+
+## Before you push
+
+<Aside type="danger" title="Check this before your first commit, not after">
+
+
+```bash
+git status --short | grep -i env
+```
+
+You want to see `.env.example` and **not** `.env`. Once a key is in git
+history it is there forever and must be rotated — removing the file later
+doesn't help.
+
+</Aside>
+
+## Deploy to Render
+
+1. Push your repo to GitHub.
+2. Render → **New +** → **Web Service** → connect your repo.
+3. Settings:
+
+    | Field | Value |
+    |---|---|
+    | **Root Directory** | *(leave blank — the repo root)* |
+    | **Build Command** | `pip install uv && uv sync --frozen` |
+    | **Start Command** | `uv run fastapi run app/main.py --port $PORT` |
+    | **Instance Type** | Free |
+
+4. **Environment** → add `GEMINI_API_KEY`, `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`.
+
+    This is where secrets live in production: **in the platform, not the repo.**
+    Same code, different source — `app/config.py` reads `os.environ` either way.
+
+5. Deploy.
+
+<Aside type="tip" title="deploy/render.yaml does all of this for you">
+
+
+Render → **New +** → **Blueprint** → pick your repo, and it reads the
+settings from the file. `sync: false` on the secret variables means "ask me
+in the dashboard, never store this in the repo".
+
+Infrastructure in version control beats settings in someone's memory.
+
+</Aside>
+
+Bind to `0.0.0.0`, **not** `127.0.0.1`. Binding to localhost inside a container
+means nothing outside can reach you — it shows up as a maddening "port scan
+timeout" in the deploy logs.
+
+[Full Render guide →](../../deploy/render/) ·
+[FastAPI Cloud as an alternative →](../../deploy/fastapi-cloud/)
+
+## Prove it's alive
+
+```bash
+curl https://<your-service>.onrender.com/health
+```
+
+```json
+{"ok": true, "database": true, "model": "gemini-flash-latest"}
+```
+
+Two seconds, and it tells you the deploy worked *and* the database is reachable.
+This is why that endpoint exists.
+
+## Point the client at it
+
+Open `client/index.html`, paste your Render URL into **Backend URL**, and ask a
+question.
+
+If you get **"Failed to fetch"**, that's CORS — and now it's real, because your
+page and your API are genuinely different origins. Set `ALLOWED_ORIGINS` on
+Render to your frontend's origin (no trailing slash) and redeploy:
+
+```text
+ALLOWED_ORIGINS=https://yourname.github.io,http://localhost:8080
+```
+
+## Connect your MCP server to Claude
+
+Your tools are now on the internet. Add them to Claude Desktop or Claude Code:
+
+```json title="claude_desktop_config.json"
+{
+  "mcpServers": {
+    "research-tools": {
+      "url": "https://<your-service>.onrender.com/mcp"
+    }
+  }
+}
+```
+
+Restart Claude, and `wiki_search` and `wiki_read` appear as tools you can use in
+any conversation. Same functions your agent uses — no second deployment, because
+the MCP server is mounted inside the app you just shipped.
+
+## Expected result
+
+- `https://<your-service>.onrender.com/health` returns `ok: true`
+- `https://<your-service>.onrender.com/docs` gives you interactive API docs
+- The web client runs the agent against your deployed backend
+- Steps stream in live, from the internet
+- Your MCP tools work inside Claude
+
+**You're done.** That URL is yours to send to anyone.
+
+## What usually goes wrong
+
+<details>
+<summary>First request after a while takes ~a minute</summary>
+
+
+Free services spin down after ~15 minutes idle. Not a bug. Hit `/health` ten
+minutes before any demo to wake it.
+
+</details>
+
+<details>
+<summary>Build fails: <code>uv: command not found</code></summary>
+
+
+The build command needs `pip install uv &&` in front of `uv sync --frozen`.
+Render's Python image doesn't ship uv.
+
+</details>
+
+<details>
+<summary>Build succeeds, service won't start</summary>
+
+
+Check the start command binds `0.0.0.0` and uses `$PORT`. Also check the
+Root Directory is **blank** — `app.main:app` is resolved from the repo root.
+
+</details>
+
+<details>
+<summary><code>RuntimeError: Missing environment variable</code></summary>
+
+
+The variables are set in the dashboard but the service hasn't redeployed.
+Environment changes need a redeploy to take effect.
+
+</details>
+
+<details>
+<summary>Everything worked, now <code>database: false</code></summary>
+
+
+Supabase paused your project after a week of inactivity. Open the dashboard
+and resume — and ping it weekly if this project matters.
+
+</details>
+
+More in [Troubleshooting →](../../deploy/troubleshooting/)
+
+## Where to go next
+
+- **Keep it alive.** [The free-tier survival guide](../../deploy/troubleshooting/#keeping-a-free-stack-alive)
+- **Make the background work durable.** `BackgroundTasks` loses runs on restart;
+  [durable execution](../../learn/deployment-problem/#the-catch-nobody-mentions)
+  checkpoints each step so a crash resumes instead of restarting.
+- **Add RAG.** The `memories` table and pgvector are already there —
+  [Learn · Memory and RAG](../../learn/memory/).
+- **Real search.** Swap Wikipedia for Tavily or Brave in
+  `app/tools/wikipedia.py`. The agent loop doesn't change.
+- **Rate limiting.** Cap runs per IP before someone burns your daily quota.
+
+<div class="stepnav">
+  <a href="../07-accept-and-poll/">← Step 7 · Accept and poll</a>
+  <span class="spacer"></span>
+  <a href="../../deploy/">Deploy reference →</a>
+</div>

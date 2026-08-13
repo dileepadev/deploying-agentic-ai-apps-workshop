@@ -1,0 +1,144 @@
+---
+title: 4 · MCP
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+The last page ended with a question: our tools are Python functions in our own
+repo, so how would anyone *else's* AI use them?
+
+That's the problem MCP exists for. It is not a bigger, better version of tool
+calling — it's the same idea with a boundary in the middle.
+
+## What it is
+
+**MCP — the Model Context Protocol — is an agreed format for describing tools to
+an AI client that has never seen your code.**
+
+An MCP **server** exposes tools. An MCP **client** — Claude Desktop, Claude
+Code, or your own agent — connects to it and asks what's available. Neither side
+needs to know anything about the other in advance.
+
+```text
+Without MCP:  your agent  ──►  your tools
+              (one program, one hardcoded set of functions)
+```
+
+```text
+With MCP:     your agent      ─┐
+              Claude Desktop  ─┼──►  MCP server  ──►  your tools
+              Claude Code     ─┘     (a described,
+              anyone else            discoverable interface)
+```
+
+The comparison people usually want is with plain tool calling from
+[page 3](../tool-calling/), so here it is directly:
+
+| | A tool in your own code | The same tool over MCP |
+|---|---|---|
+| Who knows it exists? | only the program you wrote | any MCP client that connects |
+| Who writes the schema? | you, by hand, per framework | the server, once, for everyone |
+| Discovery | none — it's hardcoded | the client asks "what have you got?" |
+| Cost | a function call | a protocol, a transport, a process |
+
+## When it's worth it, and when it isn't
+
+That last row is the honest one, and it leads to a rule worth remembering:
+
+> **If one program is calling one function, MCP buys you nothing.**
+
+It's a standard for crossing a boundary. No boundary, no benefit.
+
+Our own agent proves the point. It calls `wikipedia.search()` as a plain Python
+function, in-process — no protocol, no network hop — because the agent and the
+tools live in the same file tree. Adding MCP between them would be pure
+overhead.
+
+**So why does this project ship an MCP server at all?**
+
+Because deployment creates a boundary that didn't exist before. Once your app is
+live, `https://your-app.onrender.com/mcp` is a public address, and anyone's AI
+client can be pointed at it. Your Wikipedia tools show up inside Claude Desktop
+as tools it can use.
+
+And it costs one line, because the MCP server is mounted inside the FastAPI app
+that was already going to production:
+
+```python title="app/tools/server.py"
+mcp = FastMCP(name="research-tools", instructions="...")
+
+@mcp.tool
+async def wiki_search(query: str, limit: int = 3) -> list[str]:
+    """Search Wikipedia and return matching page titles."""
+    return await wikipedia.search(query, limit=limit)
+```
+
+```python title="app/main.py"
+# One line. The MCP server ships with the API.
+app.mount("/mcp", mcp_app)
+```
+
+That's the honest justification, and it's as much a deployment lesson as a
+protocol one: **no second service, no second thing to keep awake.**
+
+## Where it would be the wrong choice
+
+Deliberately **not** exposed over MCP in this project:
+
+- **`app/db.py`** — reading and writing runs and steps. Internal plumbing. An
+  outside model has no business calling it, and wrapping it would put a protocol
+  between two functions in the same process.
+- **`app/config.py`** — configuration is not a capability.
+- **`app/agent/steps.py`** — step logging is how *we* observe the agent, not
+  something the agent should be able to invoke.
+
+Notice the pattern: the two Wikipedia functions are capabilities someone outside
+might legitimately want. Everything else is machinery that happens to be
+callable.
+
+<Aside type="caution" title="The failure mode">
+
+
+The common mistake is wrapping everything in MCP because it's the current
+thing. You end up with a protocol between two functions in the same
+process, a second server to deploy and keep warm, and a new class of bug
+where the tools are up but the transport isn't.
+
+Reach for MCP when something *outside* your program needs your tools.
+Otherwise call the function.
+
+</Aside>
+
+## How we use this in the demo
+
+The same two functions, exposed twice:
+
+- **In-process**, via `@agent.tool`, for our own agent — fast, no hop.
+- **Over MCP** at `/mcp`, for anyone else.
+
+One implementation, two doors. [Build step 3](../../build/03-tools/) has you call
+it with the MCP Inspector, and [step 8](../../build/08-deploy/) has you connect
+Claude Desktop to your own deployed instance.
+
+<div class="inrepo">
+<code>app/tools/wikipedia.py</code> — one implementation.<br />
+<code>app/tools/server.py</code> — the MCP door.<br />
+<code>app/agent/research.py</code> — the in-process door.
+</div>
+
+---
+
+## Where this leaves us
+
+Tools are settled. The agent can act, and now other clients can borrow that
+ability too.
+
+Which brings us back to something [page 2](../anatomy/) raised and left hanging:
+every one of those tool results has to be carried forward by hand, because the
+model forgets everything between turns. A run that reads five Wikipedia pages is
+re-sending five page summaries on every subsequent call.
+
+That's memory — the part with no magic in it and a surprising amount of
+consequence.
+
+**Next:** [Memory and RAG →](../memory/)

@@ -1,0 +1,153 @@
+---
+title: 6 · Guardrails
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+This is the sixth part from the [anatomy](../anatomy/) — the limits — and it's
+the one that turns a demo into something you can leave running.
+
+## The framing that makes this obvious
+
+> **An agent is an unpredictable user holding your credentials.**
+
+Not malicious. **Unpredictable.** It will do reasonable-looking things you did
+not anticipate, at three in the morning, in a loop, using the permissions you
+gave it.
+
+Every guardrail below is just that sentence taken literally. And each one
+protects a specific part of the agent we've been building:
+
+| Part | What can go wrong | The guardrail |
+|---|---|---|
+| 🔧 Tools | it picks arguments you never imagined | narrow tools |
+| ⚙️ The loop | it never decides it's finished | a hard step ceiling |
+| 🗒️ Memory / database | a leaked key reads everything | permissions, not trust |
+| 📋 The request | 50,000 characters of input | validation, before it costs anything |
+
+## 1. Narrow tools
+
+Give it a door, not a bulldozer.
+
+| Instead of | Give it |
+|---|---|
+| `execute_sql(query)` | `save_note(text)` |
+| `write_file(path, content)` | `save_draft(content)` |
+| `http_get(url)` | `wiki_read(title)` |
+
+The left column lets the model do anything *you* can do. The right column lets
+it do one thing.
+
+This is the highest-leverage idea on the page: **you cannot prompt your way to
+the safety that a narrow function signature gives you for free.** Instructions
+are a request. A function signature is a wall.
+
+Our tools are read-only and hit one public API. The worst a confused agent can
+do is read the wrong Wikipedia page.
+
+## 2. A hard step ceiling
+
+The loop stops when the model says it's done. So what happens when it never says
+so?
+
+Without a ceiling, a confused agent loops forever and burns your entire daily
+quota before lunch. On a free tier, that's your whole day gone — and if it
+happens during a live demo, it happens in front of everyone.
+
+```python title="app/agent/steps.py"
+async def log(self, label: str, detail: str | None = None) -> None:
+    self.seq += 1
+    if self.seq > config.MAX_AGENT_STEPS:
+        raise RuntimeError(f"Agent exceeded {config.MAX_AGENT_STEPS} steps")
+    await db.add_step(self.run_id, self.seq, label, detail)
+```
+
+Twelve steps by default. It is four lines, it sits *outside* the model's
+judgement entirely, and it is the highest-value guardrail in the project.
+
+## 3. Database permissions, not trust
+
+Supabase gives you two keys, and the difference between them matters more than
+anything else in your `.env`:
+
+| Key | Where it belongs | What it can do |
+|---|---|---|
+| `anon` | safe in a browser | only what RLS policies allow |
+| `service_role` | **server only** | **bypasses all Row Level Security** |
+
+Our backend uses `service_role`, so it can do everything. We turn RLS on anyway,
+with no policies — default-deny — so that if the public `anon` key ever leaks,
+it grants nothing at all.
+
+```sql title="database/schema.sql"
+alter table runs  enable row level security;
+alter table steps enable row level security;
+```
+
+<Aside type="danger" title="The service_role key bypasses every security rule you write">
+
+
+It belongs on your server and nowhere else. Not in frontend code, not in a
+screenshot, not in a commit, not pasted into a chat. If it ever lands in
+any of those, **rotate it immediately** — the old one stays valid until you
+do.
+
+</Aside>
+
+## 4. Input validation, before it costs anything
+
+```python title="app/main.py"
+class RunRequest(BaseModel):
+    query: str = Field(min_length=3, max_length=500)
+```
+
+A two-character query gets a `422` without ever reaching the model. A 50,000
+character query can't be used to drain your token budget.
+
+It doesn't feel like a guardrail, but it's the only one on this page that stops
+a problem **before you've paid for it.**
+
+## What we deliberately did *not* build
+
+Being honest about scope, because a workshop demo is not a production system:
+
+- **Rate limiting per IP.** You want this the moment the URL is public. Cap runs
+  per IP and per user before someone burns your daily quota for fun.
+- **Output filtering.** We don't check what the model wrote before showing it.
+- **Cost caps.** No spend ceiling, because the free tier is our ceiling.
+- **Auth.** Anyone with the URL can run the agent.
+
+If you're deploying something people will actually use, the first two are the
+ones to add first.
+
+## How we use this in the demo
+
+All four guardrails are live in the code, and they cost about fifteen lines
+between them.
+
+That's the point worth making: **the cheap guardrails are the ones that matter.**
+Skipping them isn't a time saving, it's a deferred incident.
+
+<div class="inrepo">
+<code>app/agent/steps.py</code> — the step ceiling.<br />
+<code>app/main.py</code> — request validation.<br />
+<code>database/schema.sql</code> — RLS, default-deny.<br />
+<code>app/tools/wikipedia.py</code> — narrow, read-only tools that fail politely.
+</div>
+
+---
+
+## Where this leaves us
+
+The agent is now complete and reasonably safe. It thinks, acts, remembers, and
+stops. On your laptop, it works perfectly.
+
+Every problem on this page came from the agent doing something *wrong*. The last
+page is about the problem that shows up when **everything goes right** — the
+model behaves, the tools work, the answer is good — and your users still get an
+error.
+
+It's the reason this workshop exists.
+
+**Next:** [Why deployment is hard →](../deployment-problem/) — the one that
+matters most.

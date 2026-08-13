@@ -1,0 +1,119 @@
+---
+title: FastAPI Cloud
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+A hosting platform from the FastAPI team. Deploying is genuinely one command,
+which makes it a lovely thing to try — with caveats worth reading first.
+
+<Aside type="note" title="Status as of August 2026">
+
+
+FastAPI Cloud is in **public beta**. Its own pricing page notes that
+usage-based compute billing is "still being built" and not yet invoiced.
+
+Treat it as promising rather than settled, and re-check the current terms
+before relying on it.
+
+</Aside>
+
+## Why we cover it but don't recommend it as primary
+
+**In its favour:** a free Hobby plan with no credit card, `fastapi deploy` as
+the entire workflow, automatic HTTPS, scale-to-zero, secrets management, and a
+custom domain. For the framework this project is already built on, that's a very
+short path from code to URL.
+
+**Why Render stays primary here:**
+
+1. **It's a beta.** Terms and limits can change. This workshop has to keep
+   working for people following it months later.
+2. **Hobby is 0.1 vCPU / 512 MB.** Thin for a Python process that also hosts an
+   MCP server.
+3. **Scale-to-zero and background tasks are an unknown combination.** This
+   entire project depends on work continuing *after* the HTTP response is sent.
+   We could not find published documentation on how Hobby's scale-to-zero treats
+   an in-flight background task once the request completes.
+
+That third point is the real one. On platforms where CPU is allocated per
+request, a background task can be throttled to near-zero the moment the response
+goes out — which would break `/runs` specifically while leaving `/runs/naive`
+looking fine. That's the exact opposite of what this workshop teaches.
+
+<Aside type="tip" title="Test it before you trust it">
+
+
+Deploy, run one job through `POST /runs`, and check whether the `steps` rows
+keep appearing after the initial response. If they stall and then resume on
+your next poll, CPU is being allocated per request — workable, but you should
+know.
+
+Then write down what you actually measured. Measured numbers beat
+documentation.
+
+</Aside>
+
+## Deploying
+
+```bash
+uv add --dev fastapi-cloud-cli
+
+uv run fastapi login          # opens a browser
+uv run fastapi deploy         # detects the app, builds, deploys
+```
+
+That's the whole thing. It detects your FastAPI app, packages it, and gives you
+a URL.
+
+### Environment variables
+
+```bash
+uv run fastapi env set GEMINI_API_KEY
+uv run fastapi env set SUPABASE_URL
+uv run fastapi env set SUPABASE_SERVICE_ROLE_KEY
+```
+
+Same principle as everywhere else: **secrets in the platform, never the repo.**
+
+### Logs
+
+```bash
+uv run fastapi logs
+```
+
+Hobby keeps 1 day of log and metric retention, which is enough to debug a
+deploy and not enough to investigate something from last week.
+
+## Free tier, as published
+
+| | Hobby |
+|---|---|
+| Price | $0 |
+| Apps | 3 |
+| Resources | 0.1 vCPU / 512 MB, shared |
+| Autoscale | up to 3 replicas |
+| Scale-to-zero | yes |
+| Custom domain | 1 |
+| Log retention | 1 day |
+| Credit card | not required |
+
+Re-verify these before depending on them — beta pricing pages move.
+
+## Deploying to both
+
+There's real value in shipping the same app twice:
+
+- It proves the architecture is the portable part. Nothing in `app/` knows or
+  cares which platform it's on.
+- You get a fallback URL if one platform misbehaves during a demo.
+- Comparing cold starts, logs, and deploy ergonomics between two platforms *is*
+  deployment learning.
+
+Nothing in this project is platform-specific. The only file that mentions Render
+is `deploy/render.yaml`, and FastAPI Cloud needs no config file at all.
+
+## See also
+
+- [Render](../render/) — the primary path
+- [Troubleshooting](../troubleshooting/)

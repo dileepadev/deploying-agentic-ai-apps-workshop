@@ -1,0 +1,154 @@
+---
+title: 5 · Memory and RAG
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+We've said it twice now, so let's take it seriously: **models are stateless.**
+Every request carries everything the model is allowed to know, and when the
+response comes back, it has already forgotten.
+
+"Memory" is therefore not a feature the model has. It's a decision *you* make
+about what to put back in. This page is about the two different decisions people
+mean by that word — and confusing them causes most agent memory bugs.
+
+## Two kinds of memory
+
+| | Working memory | Long-term memory |
+|---|---|---|
+| Lives for | one run | forever |
+| Contains | this conversation, tool results | facts, documents, past runs |
+| In our project | the `runs` and `steps` tables | the `memories` table |
+| Grows | fast, within a run | slowly, across runs |
+| Problem it has | fills the context window | finding the relevant bit |
+
+**Working memory** is the agent's scratchpad — the growing pile of "you asked
+this, I searched that, here's what came back" that gets re-sent on every turn.
+It's what makes turn six aware of turn one. Its problem is size: it grows every
+turn, and the context window is finite.
+
+Our `steps` table is exactly this, with a bonus. Because we write it to a
+database instead of holding it in RAM, the UI can read the agent's progress
+while it's still running, and a crashed run leaves evidence behind. Same data,
+two jobs.
+
+**Long-term memory** is anything that should outlive the run — your documents,
+your notes, what happened last week. Its problem is the opposite one: you have
+far too much of it to send, so you need to find the relevant slice first.
+
+That "find the relevant slice" job is what RAG does.
+
+## RAG, without the mystique
+
+**RAG — Retrieval-Augmented Generation — means: find relevant text, paste it
+into the prompt, ask the question.**
+
+That's genuinely all it is. Once you know the model is stateless, RAG stops
+sounding like a technology and starts sounding like the obvious move.
+
+The only interesting part is "find relevant". Keyword search finds documents
+containing your *words*. **Vector search finds documents that *mean* something
+similar** — "car" matches "automobile", because the two end up close together in
+a space of numbers.
+
+```text
+1. Turn each document into a vector (a list of ~768 numbers) — "embedding"
+2. Store the vectors
+3. Turn the question into a vector too
+4. Find the stored vectors closest to it
+5. Paste those documents into the prompt
+```
+
+Step 4 is the only step that needs anything special, and it's what a vector
+database does. Postgres does it with the **pgvector** extension, which is why
+this project doesn't need a second service:
+
+```sql title="database/schema.sql"
+create extension if not exists vector;
+
+create table if not exists memories (
+  id          bigserial primary key,
+  content     text not null,
+  embedding   vector(768),     -- must match your model's output size
+  created_at  timestamptz not null default now()
+);
+```
+
+Similarity search then looks like ordinary SQL — `<=>` is cosine distance, and
+smaller means closer:
+
+```sql
+select content, 1 - (embedding <=> '[0.1, 0.2, ...]'::vector) as similarity
+from memories
+order by embedding <=> '[0.1, 0.2, ...]'::vector
+limit 5;
+```
+
+<Aside type="danger" title="The dimension gotcha — the #1 thing that breaks pgvector projects">
+
+
+That `768` must **exactly** match the number of dimensions your embedding
+model outputs. Different models output different sizes.
+
+Get it wrong and you either get an error at insert time, or — worse — you
+build your whole table on the wrong number and have to migrate it later.
+
+**Check your model's output dimensions first, then write that line.**
+
+</Aside>
+
+## RAG or tools?
+
+These two solve the same problem — *getting information the model doesn't have*
+— from opposite directions, so it's worth being explicit:
+
+| | RAG | Tools |
+|---|---|---|
+| When | *before* the model runs | *during* the run |
+| Who chooses | you | the model |
+| Good when | you know what's relevant | the model must decide what it wants |
+
+Our agent uses tools: it searched Wikipedia because it decided to, twice, with
+different angles. A RAG version would have searched your documents up front and
+handed the results over without being asked.
+
+Most real systems use both — RAG for the context you know they'll need, tools
+for the things only the model can decide it wants.
+
+## How we use this in the demo
+
+Honestly: **lightly, and that's a deliberate choice.**
+
+- `runs` and `steps` are working memory, and they're doing real work — they're
+  what makes the live progress UI possible, and they're what
+  [page 7](../deployment-problem/) is about to build on.
+- `memories` and pgvector are set up in the schema and left as your extension
+  point. The workshop is about deployment, and a full RAG pipeline is a session
+  of its own.
+
+If you want to go further: embed your documents, store the vectors, and add a
+`search_memory` tool. Notice that the agent loop doesn't change at all — you're
+just giving it one more door, exactly as [page 3](../tool-calling/) described.
+
+<div class="inrepo">
+<code>database/schema.sql</code> — all three tables, with the dimension warning
+in place.<br />
+<code>app/db.py</code> — <code>add_step()</code> is working memory in four
+lines.
+</div>
+
+---
+
+## Where this leaves us
+
+That's five of the six parts from the anatomy: a model that decides,
+instructions that shape it, tools that let it act, other clients that can borrow
+those tools, and memory that carries the run forward.
+
+Which means we've built something that can now take real actions in the world,
+choose its own arguments, and keep going until it's satisfied — with nobody
+watching.
+
+Time to talk about what stops it.
+
+**Next:** [Guardrails →](../guardrails/)

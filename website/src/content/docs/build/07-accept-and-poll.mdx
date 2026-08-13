@@ -1,0 +1,205 @@
+---
+title: Step 7 · Accept and poll
+---
+<div class="stepbar" data-step="7" data-total="8">
+  <span class="stepbar-label">Step 7 of 8</span>
+  <span class="stepbar-track"><span class="stepbar-fill" style="width:87.5%"></span></span>
+  <span class="stepbar-done">Accept and poll</span>
+</div>
+
+
+
+## Objective
+
+Fix step 6 by never running the agent inside the request — and get a live
+progress UI as a side effect.
+
+## Why this step exists
+
+This is the workshop. Everything before it was setup; everything after it is
+deployment. If you remember one thing:
+
+> ### Never run the agent inside the HTTP request.
+
+## The change
+
+```python title="app/main.py" hl_lines="7"
+@app.post("/runs", status_code=202)
+async def create_run(body: RunRequest, background: BackgroundTasks):
+    run_id = await db.create_run(body.query)
+
+    # Queue the slow work to run AFTER this response has been sent.
+    background.add_task(research.run_agent, run_id, body.query)
+
+    return {"run_id": run_id, "status": "queued", "poll": f"/runs/{run_id}"}
+```
+
+- `202 Accepted` is the honest status code: *"I have taken your request, I have
+   not finished it."* Not `200` — nothing is done yet.
+
+Compare with step 6. One `await` became one `add_task`. That is the entire fix.
+
+The response comes back in ~200 ms whether the agent takes 5 seconds or 5
+minutes, because the response no longer waits for it.
+
+Then the endpoint the client polls:
+
+```python title="app/main.py"
+@app.get("/runs/{run_id}")
+async def read_run(run_id: str):
+    run = await db.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return {"run": run, "steps": await db.get_steps(run_id)}
+```
+
+## The client side
+
+```javascript title="client/index.html"
+// 1. Ask. Comes back immediately with an id.
+const response = await fetch(`${baseUrl()}/runs`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ query }),
+});
+const { run_id } = await response.json();
+
+// 2. Poll. Every 1.5s, until it's done.
+pollId = setInterval(async () => {
+  const poll = await fetch(`${baseUrl()}/runs/${run_id}`);
+  const { run, steps } = await poll.json();
+
+  renderSteps(steps);                       // ← the live progress
+  if (run.status === "done" || run.status === "error") {
+    clearInterval(pollId);
+    renderResult(run);
+  }
+}, 1500);
+```
+
+Twenty lines. It works through every proxy, survives a phone switching networks,
+and you can debug it with `curl`.
+
+## The bonus nobody expects
+
+You fixed a timeout problem. You also got a progress UI for free.
+
+Because the agent writes each step to the database, every poll returns the steps
+*so far*. The client doesn't just learn whether it's finished — it learns what
+the agent is doing right now:
+
+```text
+✓ Planning the research
+✓ Searching Wikipedia — "photovoltaic effect"
+✓ Searching Wikipedia — "solar cell efficiency"
+✓ Reading a source — Solar cell
+⋯ Reading a source — Photovoltaics
+```
+
+The same mechanism that solved the deployment problem solved the UX problem.
+That's rare enough to be worth noticing.
+
+## Try it
+
+```bash
+uv run fastapi dev app/main.py
+```
+
+Open `client/index.html`, **untick Naive mode**, and ask the same question as step
+6.
+
+Then run both back to back with the checkbox to feel the difference. That toggle
+is the most persuasive thing in this whole project.
+
+## Expected result
+
+The POST returns immediately:
+
+```json
+{"run_id": "3f2a...", "status": "queued", "poll": "/runs/3f2a..."}
+```
+
+Steps appear one at a time over the next 30–60 seconds, then the answer.
+
+Check it from the command line too:
+
+```bash
+curl -X POST http://localhost:8000/runs \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"how do solar panels actually work?"}'
+# {"run_id":"3f2a...","status":"queued","poll":"/runs/3f2a..."}
+
+curl http://localhost:8000/runs/3f2a...
+```
+
+**Then open the Supabase table editor and look at `steps`.** The rows are right
+there. The UI is just rendering database rows — that's usually the moment this
+clicks for people.
+
+## The catch, stated honestly
+
+`BackgroundTasks` runs **inside your server process**. If the process restarts
+mid-run — a deploy, a crash, a free instance being recycled — the job vanishes
+and the row sits at `running` forever.
+
+Fine for a demo. Know it's a real limit rather than discovering it later. The
+upgrade path is in
+[Learn · Why deployment is hard](../../learn/deployment-problem/#the-catch-nobody-mentions),
+and it doesn't change the architecture — just how the background work is
+scheduled.
+
+## A test that protects this
+
+```bash
+uv run --extra dev pytest tests/test_api.py -v
+```
+
+`test_post_runs_answers_before_the_agent_has_finished` fails if anyone ever moves
+the agent back inside the request. Worth keeping.
+
+## What usually goes wrong
+
+<details>
+<summary>Steps never appear, status stays <code>queued</code></summary>
+
+
+The background task isn't running or is failing instantly. Check the server
+terminal — an exception in `run_agent` is caught and written to the run's
+`error` column, so also check the row in Supabase.
+
+</details>
+
+??? failure "\"Failed to fetch\" in the browser"
+
+    Almost always CORS. Locally, set `ALLOWED_ORIGINS=*` in `.env`. Also check
+    you're not calling an `http://` backend from an `https://` page — browsers
+    block that.
+
+<details>
+<summary>The run sits at <code>running</code> forever</summary>
+
+
+Either the agent is genuinely still working (check `steps` for the latest
+row), or the process restarted and took the task with it. That's the
+`BackgroundTasks` limitation above.
+
+</details>
+
+<details>
+<summary>Polling hammers the server</summary>
+
+
+1.5 seconds is a reasonable floor. Don't go below 1s, and stop polling when
+the tab is hidden if you're being careful.
+
+</details>
+
+## What's next
+
+It works locally. Now put it on the internet.
+
+<div class="stepnav">
+  <a href="../06-the-wrong-way/">← Step 6 · The wrong way</a>
+  <span class="spacer"></span>
+  <a href="../08-deploy/">Step 8 · Deploy →</a>
+</div>

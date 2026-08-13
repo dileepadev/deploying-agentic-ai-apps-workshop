@@ -1,0 +1,209 @@
+---
+title: 2 · Anatomy of an agent
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+Now that we know what an agent is — a model running in a loop, deciding for
+itself what to do next — let's open one up and name the parts that make it work.
+
+This page is the map for everything that follows. **Each part below gets its own
+page later**, so if something here feels thin, that's on purpose: you're meeting
+the vocabulary, not learning it in full yet.
+
+## The six parts
+
+Every agent, in every framework, is some arrangement of these:
+
+```text
+   your goal
+       │
+       ▼
+   ┌────────────────────────────────────────────────────────┐
+   │  THE LOOP — your code, running these in turn           │
+   └────────────────────────────────────────────────────────┘
+       │
+       │  1. send INSTRUCTIONS + MEMORY (everything so far)
+       ▼
+   ┌───────────┐
+   │   MODEL   │   the only part that decides anything
+   └─────┬─────┘
+         │  2. it replies: "call wiki_search('photovoltaic effect')"
+         ▼
+   ┌───────────┐
+   │   TOOLS   │ ──►  the outside world (Wikipedia)
+   └─────┬─────┘
+         │  3. the result is appended to MEMORY
+         └──────►  round again, until the model answers instead
+
+   LIMITS sit outside all of it: stop after 12 turns, whatever the model thinks.
+```
+
+| Part | In one sentence | In this repo |
+|---|---|---|
+| 🧠 **Model** | Decides what to do next. Can only produce text. | `build_model()` in `app/agent/research.py` |
+| 📋 **Instructions** | The job description you give it, once. | `INSTRUCTIONS` in `app/agent/research.py` |
+| 🔧 **Tools** | The functions it's allowed to ask for. | `app/tools/wikipedia.py` |
+| 🗒️ **Memory** | Everything it's allowed to still know. | the conversation, plus the `steps` table |
+| ⚙️ **Loop** | Your code, calling the model over and over. | Pydantic AI's `agent.run()` |
+| 🛑 **Limits** | What makes it stop, whatever it thinks. | the ceiling in `app/agent/steps.py` |
+
+Now each one, and why an agent falls apart without it.
+
+### The model — the part that decides
+
+The model is the only part that makes judgement calls. Which page is worth
+reading? Is this enough to answer? Should I search again?
+
+It's also, as [page 1](../agents/) said, the part that can't *do* anything. It
+reads text and writes text. Every actual action is carried out by your code on
+its behalf.
+
+That split — **model decides, your code acts** — is the thing to hold onto. Half
+the confusion about agents dissolves once it's fixed in your head.
+
+### The instructions — the job description
+
+A block of text sent at the start of every run, telling the model what job it's
+doing and how you want it done. Sometimes called the *system prompt*.
+
+```python title="app/agent/research.py"
+INSTRUCTIONS = """You are a careful research assistant.
+
+Given a question, research it using the tools available to you:
+  1. Use wiki_search to find pages. Prefer specific, factual queries over broad
+     ones. Search two or three times with different angles.
+  2. Use wiki_read on the titles that look most relevant.
+  3. Answer using ONLY what those sources actually say.
+...
+```
+
+Read that carefully, because it's doing more work than it looks. "Search two or
+three times with different angles" is what produces the multi-search behaviour
+from page 1. "Answer using ONLY what those sources actually say" is what keeps
+it from filling gaps with invention.
+
+**Instructions are how you shape behaviour without writing code.** They're also
+the first place to look when an agent is behaving oddly.
+
+### The tools — the hands
+
+Tools are ordinary functions you let the model ask for. Ours are two:
+`wiki_search(query)` and `wiki_read(title)`.
+
+Without tools an agent is just a chatbot with extra steps — it can think in a
+loop, but it can't learn anything new, so looping gains it nothing. Tools are
+what connect the loop to the real world.
+
+**Going deeper:** [page 3, Tool calling](../tool-calling/) explains the
+mechanism, which is stranger than it sounds — the model never actually runs your
+code. [Page 4, MCP](../mcp/) covers what happens when someone *else's* AI wants
+to use your tools.
+
+### The memory — the notebook
+
+Here's the part that catches people out. **The model remembers nothing.** Not
+between runs, and not even between turns of the same loop.
+
+So on every single turn, your code resends the entire conversation so far: the
+original question, every tool the model asked for, every result it got back.
+"Memory" isn't something the model has — it's something you re-send.
+
+That's why the table on page 1 said each agent run costs 5–10 calls "each
+carrying the whole history". Turn six is paying for turns one through five all
+over again.
+
+**Going deeper:** [page 5, Memory and RAG](../memory/) splits this into memory
+that lasts one run and memory that outlives it — and explains why our project
+writes the agent's thinking into a database instead of holding it in RAM.
+
+### The loop — the part you own
+
+The loop is plain code. Call the model. Did it ask for a tool? Run it, append
+the result, call the model again. Did it produce a final answer? Stop.
+
+```text
+while True:
+    reply = call_model(instructions, history)
+    if reply.wants_a_tool:
+        history += run_that_tool(reply)      # ← your code, not the model's
+    else:
+        return reply.answer
+```
+
+That's genuinely it. A framework like Pydantic AI writes this loop for you,
+handles retries, and validates the arguments the model produces — but it is not
+doing anything mysterious. You can see the same loop written out longhand in
+`app/agent/manual_loop.py`.
+
+### The limits — the part that makes it stop
+
+An agent decides when it's done. Which means an agent can decide *wrong* — and
+loop, searching variations of the same query, until your daily API quota is
+gone.
+
+So you impose a ceiling from outside. Ours is twelve steps, enforced in four
+lines, and it's the highest-value safety feature in the project.
+
+**Going deeper:** [page 6, Guardrails](../guardrails/) covers the ceiling and
+the three other limits worth having before you put an agent on the internet.
+
+## Where the parts live in one file
+
+Open `app/agent/research.py` and you can point at all six in one file —
+instructions at the top, the model built just below them, tools registered
+underneath with `@agent.tool`, and the loop supplied by the framework when
+`agent.run()` is called at the bottom:
+
+```python title="app/agent/research.py"
+@agent.tool
+async def wiki_search(ctx: RunContext[Deps], query: str, limit: int = 3) -> list[str]:
+    """Search Wikipedia and return matching page titles."""
+    await ctx.deps.steps.log("Searching Wikipedia", f'Looking for: "{query}"')
+    return await wikipedia.search(query, limit=limit)
+```
+
+<div class="inrepo">
+<code>app/agent/research.py</code> — all six parts, with a framework.<br />
+<code>app/agent/manual_loop.py</code> — the same six by hand, so the loop stops
+being magic.
+</div>
+
+<Aside type="tip" title="Looking for the system diagram?">
+
+
+This page is the anatomy of the **agent**. The anatomy of the **application**
+around it — FastAPI, Postgres, the browser, and how a request flows through
+them — is in [Stack · Architecture](../../stack/architecture/).
+
+It'll make far more sense after [page 7](../deployment-problem/), because that
+page explains *why* the application is shaped the way it is.
+
+</Aside>
+
+---
+
+## Where this leaves us
+
+All six parts are now on the table. Here's the rest of the section, in one view:
+
+| Part | Where it's covered |
+|---|---|
+| Model, Instructions | above — that's the whole story for these two |
+| Tools | [page 3](../tool-calling/), and sharing them on [page 4](../mcp/) |
+| Memory | [page 5](../memory/) |
+| Limits | [page 6](../guardrails/) |
+| **Loop** | **nowhere — and that's the interesting part** |
+
+The loop gets no deep dive because there's nothing in it: call the model, run
+what it asks for, repeat. Four lines of pseudocode and you've seen all of them.
+
+And yet it's the part that defines this entire workshop. A loop that makes 5–10
+model calls takes 30–60 seconds — a number that is completely fine on your
+laptop and fatal in production. That's [page 7](../deployment-problem/), and
+everything between here and there is preparation for it.
+
+First, though, the part that makes the loop worth running at all: how the model
+gets to use a function it can't execute.
+
+**Next:** [Tool calling →](../tool-calling/)

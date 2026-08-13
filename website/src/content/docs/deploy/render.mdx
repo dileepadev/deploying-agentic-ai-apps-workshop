@@ -1,0 +1,159 @@
+---
+title: Render
+---
+
+import { Aside, TabItem, Tabs } from "@astrojs/starlight/components";
+
+The primary deployment path for this project. Free web services, no credit card,
+deploys straight from a GitHub repo.
+
+## Two ways to do it
+
+<Tabs>
+<TabItem label="Blueprint (recommended)">
+
+
+The repo already contains `deploy/render.yaml`, so the settings are in
+version control rather than in someone's memory.
+
+1. Render → **New +** → **Blueprint**
+2. Pick your repo
+3. Render reads the file and asks you for the three secret values
+4. Apply
+
+</TabItem>
+<TabItem label="By hand">
+
+
+Render → **New +** → **Web Service** → connect your repo, then:
+
+| Field | Value |
+|---|---|
+| Root Directory | *(blank)* |
+| Runtime | Python |
+| Build Command | `pip install uv && uv sync --frozen` |
+| Start Command | `uv run fastapi run app/main.py --port $PORT` |
+| Instance Type | Free |
+| Health Check Path | `/health` |
+
+</TabItem>
+</Tabs>
+
+## The blueprint, explained
+
+```yaml title="deploy/render.yaml"
+services:
+  - type: web
+    name: research-agent
+    runtime: python
+    plan: free
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uv run fastapi run app/main.py --port $PORT
+    healthCheckPath: /health
+
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
+      - key: MAX_AGENT_STEPS
+        value: "12"
+      - key: ALLOWED_ORIGINS
+        value: "*"
+```
+
+Three things in there are worth knowing:
+
+- **`uv sync --frozen`** means "use `uv.lock` exactly, don't re-resolve". Your
+  deploy gets the versions you tested, not whatever is newest today.
+- **`sync: false`** means *"ask me for this value in the dashboard, and never
+  store it in the repo"*. This is how secrets stay out of git — the three keys
+  above it are secret, so none of them carry a value here.
+- **The variables that do carry a value** (`GEMINI_MODEL`, `MAX_AGENT_STEPS`,
+  `ALLOWED_ORIGINS`) aren't secret, so committing them is fine. Change
+  `ALLOWED_ORIGINS` to your real frontend origin before you go public.
+
+## Environment variables
+
+Dashboard → your service → **Environment**.
+
+| Variable | Required | Notes |
+|---|---|---|
+| `GEMINI_API_KEY` | yes | from AI Studio |
+| `SUPABASE_URL` | yes | no trailing slash |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | the `service_role` key, not `anon` |
+| `GEMINI_MODEL` | no | defaults to `gemini-flash-latest` |
+| `MAX_AGENT_STEPS` | no | defaults to 12 |
+| `ALLOWED_ORIGINS` | no | comma-separated, no trailing slash |
+
+<Aside type="caution" title="Changes need a redeploy">
+
+
+Setting a variable doesn't restart the service. If you get
+`Missing environment variable` after adding one, trigger a manual deploy.
+
+</Aside>
+
+## What the free tier actually gives you
+
+| | |
+|---|---|
+| Instance hours | 750 / month / workspace |
+| Credit card | not required |
+| Spin-down | after ~**15 minutes** idle |
+| Cold start | ~1 minute |
+| CPU | a small shared slice |
+| Filesystem | **ephemeral** — wiped on every restart |
+
+Two of these bite people:
+
+**The cold start.** Hit `/health` ten minutes before any demo. A judge or
+interviewer waiting 60 seconds on a blank page will assume it's broken.
+
+**The ephemeral filesystem.** Anything written to disk is gone on restart. This
+is why the project keeps everything in Postgres and nothing on disk — it's not
+an accident.
+
+The small CPU slice is fine here because agent work is I/O-bound; you're waiting
+on the model anyway. It would be bad for anything CPU-heavy.
+
+## Reading the deploy log
+
+Render shows you the build in real time. Worth knowing what you're looking at:
+
+```text
+==> Cloning from https://github.com/...
+==> Running build command 'pip install uv && uv sync --frozen'...
+    Resolved 94 packages in 12ms
+    Installed 94 packages in 1.2s
+==> Build successful 🎉
+==> Deploying...
+==> Running 'uv run fastapi run app/main.py --port $PORT'
+    INFO:     Uvicorn running on http://0.0.0.0:10000
+==> Your service is live 🎉
+```
+
+If it stops after "Deploying..." and eventually says something about ports, your
+start command isn't binding `0.0.0.0`.
+
+## Keeping it warm
+
+The free tier sleeps. If you need it responsive:
+
+- Hit `/health` before demos, manually.
+- Or schedule a GitHub Action to ping it. Note this consumes your 750 monthly
+  instance hours faster — pinging every 10 minutes keeps it awake permanently,
+  which is roughly 720 hours a month. That's within budget for one service, and
+  over it if you run two.
+
+Don't ping more often than you need to.
+
+## See also
+
+- [Troubleshooting](../troubleshooting/) — when it doesn't work
+- [FastAPI Cloud](../fastapi-cloud/) — the alternative path

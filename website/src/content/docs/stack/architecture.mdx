@@ -1,0 +1,151 @@
+---
+title: Architecture
+---
+
+import Mermaid from "../../../components/Mermaid.astro";
+
+## The whole system
+
+<Mermaid chart={`flowchart TB
+    subgraph browser["Browser · GitHub Pages"]
+        UI["client/index.html<br />polls every 1.5s"]
+    end
+
+    subgraph render["FastAPI · Render free tier"]
+        API["app/main.py"]
+        BG["BackgroundTasks"]
+        AGENT["app/agent/research.py<br />Pydantic AI"]
+        MCP["/mcp<br />FastMCP server"]
+        TOOLS["app/tools/wikipedia.py"]
+    end
+
+    subgraph external["External services"]
+        DB[("Supabase Postgres<br />runs · steps · memories")]
+        GEM["Gemini API"]
+        WIKI["Wikipedia API"]
+    end
+
+    CLAUDE["Claude Desktop<br />or any MCP client"]
+
+    UI -->|"POST /runs → 202 run_id"| API
+    UI -->|"GET /runs/id"| API
+    API -->|"queue"| BG
+    BG --> AGENT
+    AGENT -->|"tool calls"| TOOLS
+    AGENT <-->|"think"| GEM
+    AGENT -->|"write each step"| DB
+    API -->|"read run + steps"| DB
+    TOOLS --> WIKI
+    MCP --> TOOLS
+    CLAUDE -->|"MCP protocol"| MCP`} />
+
+## The request that matters
+
+What happens when you ask a question, in order:
+
+<Mermaid chart={`sequenceDiagram
+    participant B as Browser
+    participant A as FastAPI
+    participant D as Postgres
+    participant G as Agent
+
+    B->>A: POST /runs {"query": "..."}
+    A->>D: INSERT runs (status=queued)
+    D-->>A: run_id
+    A-->>B: 202 {"run_id"}  ← ~200ms, connection closes
+    Note over A,G: everything below happens after the response
+
+    A->>G: BackgroundTasks
+    G->>D: INSERT steps (Planning…)
+    B->>A: GET /runs/{id}
+    A->>D: SELECT run, steps
+    A-->>B: {status: running, steps: [1]}
+
+    G->>D: INSERT steps (Searching…)
+    B->>A: GET /runs/{id}
+    A-->>B: {status: running, steps: [1,2]}
+
+    G->>D: UPDATE runs (status=done, result)
+    B->>A: GET /runs/{id}
+    A-->>B: {status: done, result: "..."}`} />
+
+The critical line is the fourth one. **The connection closes before the agent
+has done anything.** Every timeout problem in
+[Learn · Why deployment is hard](../../learn/deployment-problem/) dies right
+there.
+
+## The data
+
+Three tables. Two of them do all the work.
+
+<Mermaid chart={`erDiagram
+    runs ||--o{ steps : "has many"
+    runs {
+        uuid id PK
+        text query
+        text status "queued|running|done|error"
+        text result "the final answer"
+        text error
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    steps {
+        bigserial id PK
+        uuid run_id FK
+        int seq "display order"
+        text label "shown in the UI"
+        text detail
+        timestamptz created_at
+    }
+    memories {
+        bigserial id PK
+        text content
+        vector embedding "768 dims"
+        timestamptz created_at
+    }`} />
+
+`runs` is the job. `steps` is the thought process — and the reason the UI can
+say "Agent is searching…" instead of showing a spinner. `memories` is there for
+when you add RAG; nothing writes to it yet.
+
+## Where every file sits
+
+```text
+deploying-agentic-ai-apps-workshop/
+├── app/                     the deployed application
+│   ├── main.py              the API — /runs vs /runs/naive
+│   ├── config.py            environment variables, validated at startup
+│   ├── db.py                Supabase over its REST API
+│   ├── llm.py               raw Gemini calls (used by manual_loop only)
+│   ├── agent/
+│   │   ├── research.py      the agent — Pydantic AI
+│   │   ├── manual_loop.py   the same loop by hand, for reading
+│   │   └── steps.py         step logging + the step ceiling
+│   └── tools/
+│       ├── wikipedia.py     the tools themselves
+│       └── server.py        the same tools, over MCP
+├── client/index.html        the client — vanilla JS, no build
+├── database/schema.sql      three tables
+├── deploy/render.yaml       infrastructure as a file
+├── tests/                   12 tests, no network or keys needed
+├── slides/                  the presentation deck
+├── website/                 this site
+└── speaker/                 run of show, prep notes — presenter only
+```
+
+## Three deliberate choices
+
+**One service, not three.** The API, the agent, and the MCP server all run in
+one FastAPI process. Splitting them would be more "correct" and would triple the
+number of things that can be asleep when you need them. On a free tier, fewer
+moving parts wins.
+
+**The database is the message bus.** There's no Redis, no queue. The agent
+writes rows; the client reads rows. It's simpler than it sounds and it means
+every run leaves a complete, inspectable trace you can read in the Supabase
+table editor.
+
+**The frontend is a single HTML file.** No build step, no framework, no
+`node_modules`. You can open it by double-clicking it. The API calls are
+identical from React, Flutter, or curl — so nothing here is thrown away when you
+rebuild the UI properly.

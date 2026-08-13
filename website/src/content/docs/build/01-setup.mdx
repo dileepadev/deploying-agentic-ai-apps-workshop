@@ -1,0 +1,180 @@
+---
+title: Step 1 · Set up
+---
+
+import { Aside, TabItem, Tabs } from "@astrojs/starlight/components";
+
+<div class="stepbar" data-step="1" data-total="8">
+  <span class="stepbar-label">Step 1 of 8</span>
+  <span class="stepbar-track"><span class="stepbar-fill" style="width:12.5%"></span></span>
+  <span class="stepbar-done">Set up</span>
+</div>
+
+
+
+## Objective
+
+Get the project running on your machine, with your own keys, and prove it works
+before spending any quota.
+
+## Why this step exists
+
+Most "it doesn't work" problems in a workshop are environment problems, not code
+problems. We front-load them and give you a single command that proves the whole
+setup is sound.
+
+## Get the code
+
+```bash
+git clone https://github.com/dileepadev/deploying-agentic-ai-apps-workshop.git
+cd deploying-agentic-ai-apps-workshop
+```
+
+## Install uv
+
+[uv](https://docs.astral.sh/uv/) manages the Python version, the virtual
+environment, and the packages — one tool instead of four.
+
+<Tabs>
+<TabItem label="macOS / Linux">
+
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+</TabItem>
+<TabItem label="Windows">
+
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+</TabItem>
+<TabItem label="Already have pipx or brew">
+
+
+```bash
+brew install uv        # or:  pipx install uv
+```
+
+</TabItem>
+</Tabs>
+
+Then:
+
+```bash
+uv sync
+```
+
+That reads `pyproject.toml` and `uv.lock`, installs the exact versions this
+project was tested with, and creates `.venv` for you. **You never need to
+activate it** — `uv run` handles that.
+
+## Configure your secrets
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in three values:
+
+| Variable | Where to get it |
+|---|---|
+| `GEMINI_API_KEY` | [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) → *Create API key* |
+| `SUPABASE_URL` | Supabase → Project Settings → API → *Project URL* |
+| `SUPABASE_SERVICE_ROLE_KEY` | same page, the **service_role** key |
+
+<Aside type="danger" title="The service_role key bypasses every database security rule">
+
+
+It belongs on your server and nowhere else. Never in frontend code, a
+screenshot, a commit, or a chat message.
+
+`.env` is already in `.gitignore` — check that it stays there. Once a key is
+pushed to GitHub it is in the history forever and must be rotated.
+
+</Aside>
+
+## Prove it works
+
+Run the tests. They need **no API key and no network**:
+
+```bash
+uv run --extra dev pytest
+```
+
+```text
+............                                        [100%]
+12 passed
+```
+
+Then start the server:
+
+```bash
+uv run fastapi dev app/main.py
+```
+
+## Expected result
+
+Open [http://localhost:8000/health](http://localhost:8000/health). You want:
+
+```json
+{"ok": true, "database": true, "model": "gemini-flash-latest"}
+```
+
+Also open [http://localhost:8000/docs](http://localhost:8000/docs) — FastAPI generates that from your code,
+and you'll use it to test the deployed version later.
+
+## What usually goes wrong
+
+<details>
+<summary><code>database: false</code></summary>
+
+
+Your `SUPABASE_URL` or key is wrong, or the project is paused. Free projects
+pause after about a week idle — open the Supabase dashboard and resume it.
+
+You haven't created the tables yet either — that's [step 2](../02-database/).
+`database: false` at this point is expected if you've skipped ahead.
+
+</details>
+
+<details>
+<summary><code>RuntimeError: Missing environment variable: GEMINI_API_KEY</code></summary>
+
+
+Working as intended — config fails loudly at startup rather than mysteriously
+at request time. Check `.env` exists in the **repo root**, not in `app/`, and
+that there are no quotes around the values.
+
+</details>
+
+<details>
+<summary><code>uv: command not found</code> after installing</summary>
+
+
+The installer added it to a shell profile that your current terminal hasn't
+read. Open a new terminal, or `source ~/.bashrc` / `source ~/.zshrc`.
+
+</details>
+
+<details>
+<summary>Python version errors</summary>
+
+
+You don't need to fix your system Python. `uv python install 3.12` then
+`uv sync` again — uv will use its own.
+
+</details>
+
+## What's next
+
+You have an environment. Now it needs somewhere to put things.
+
+<div class="stepnav">
+  <a href="../">← Build overview</a>
+  <span class="spacer"></span>
+  <a href="../02-database/">Step 2 · The database →</a>
+</div>

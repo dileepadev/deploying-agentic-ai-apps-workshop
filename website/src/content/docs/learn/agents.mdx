@@ -1,0 +1,138 @@
+---
+title: 1 · From chatbot to agent
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+Everything else in this workshop is downstream of one distinction. Get it clear
+here and the next six pages will feel like consequences rather than new topics.
+
+## Start with what the model actually does
+
+A large language model does exactly one thing: **you give it text, it gives you
+text back.**
+
+That's the entire capability. It cannot open a file, call an API, or look
+anything up. It doesn't remember your previous message unless you send that
+message again. Every clever AI product you've used is that one move, wrapped in
+code.
+
+So the interesting question is never "what can the model do?" It's **"what did
+somebody wrap around it?"**
+
+## A chatbot is one turn
+
+A **chatbot** is the smallest possible wrapper. Take the user's message, send it
+to the model, show what comes back.
+
+```text
+🤖 Chatbot:   you ask   →  model answers 💬                   (~2 seconds ⏳)
+```
+
+One request in, one response out, usually a second or two. The model answers
+from what it absorbed during training. If it doesn't know, it guesses — and it
+guesses in the same confident voice it uses when it's right.
+
+## An agent is a loop
+
+An **agent** is a bigger wrapper. You give the model a goal and a set of
+functions it's allowed to use, then you run it in a loop: let it think, let it
+pick a function, run that function for it, hand back the result, and ask it what
+it wants to do next. You keep going until it says it's finished.
+
+```text
+🤖 Agent:     you ask   →  model thinks 🧠
+                        →  calls a tool 🔧 →  reads the result 📖
+                        →  thinks again 🧠
+                        →  calls another tool 🔧 →  reads that 📖
+                        →  ...
+                        →  finally answers 💬             (~30-60 seconds ⏳)
+```
+
+<Aside type="note" title="The one-sentence version">
+
+
+A chatbot **says** things. An agent **does** things, in a loop, until it
+decides it's done.
+
+</Aside>
+
+That loop is the whole idea. Frameworks, protocols, vector databases — all of it
+is detail hanging off those few lines.
+
+## Why the loop changes everything
+
+Going from one call to a loop changes four things at once, and only the first
+one is obvious:
+
+| | Chatbot | Agent |
+|---|---|---|
+| **Duration** | ~2 s | 30 s – several minutes |
+| **Failure** | you get a bad answer | it can fail *halfway*, having done real work |
+| **Cost** | one model call | 5–10 calls, each carrying the whole history |
+| **What the user sees** | the answer | **a spinner, and growing doubt** |
+
+Two of these rows go on to define the rest of the workshop.
+
+**Duration** is what breaks deployment. A loop that runs for 45 seconds cannot
+live inside a normal web request, and that is [page 7](../deployment-problem/) —
+the reason this workshop exists.
+
+**What the user sees** is what breaks the experience. It's why this project
+writes every step of the agent's thinking to a database, so the UI can say
+"Agent is searching…" instead of showing a spinner for 45 seconds and hoping.
+
+## What it looks like in practice
+
+Ask *"how do solar panels actually work?"*
+
+A **chatbot** answers from memory in one shot. It might be right. It might be
+confidently wrong, and you have no way to tell which.
+
+Our **agent**:
+
+1. searches Wikipedia for `photovoltaic effect`
+2. gets back some page titles, and decides which look useful
+3. reads two of them
+4. notices it has nothing on efficiency, and searches again
+5. reads one more page
+6. writes an answer citing what it actually read
+
+**Step 4 is the whole definition.** A chatbot can't do it — it only gets one
+turn. A fixed script can't do it either — a script searches a set number of
+times because a programmer said so. Here, *the model chose to search again*,
+because it judged the first results insufficient.
+
+When people say "agentic", that decision is what they mean: **the model owns the
+control flow.**
+
+## How we use this in the demo
+
+Our agent takes 30–60 seconds on purpose. It's slow enough that the naive
+deployment visibly breaks in front of a room, which is the entire teaching
+device of this workshop.
+
+The repo contains the same agent written twice, so you can see the line clearly:
+
+<div class="inrepo">
+<code>app/agent/manual_loop.py</code> — a fixed pipeline. We decide the order;
+the model fills in the blanks. Readable in one sitting, no framework.<br />
+<code>app/agent/research.py</code> — the model decides. Same tools, same
+outcome, but the control flow belongs to the model.
+</div>
+
+Read them side by side. The difference between those two files *is* the
+definition of an agent, and it lands better than any paragraph about it.
+
+---
+
+## Where this leaves us
+
+We now know an agent is a model running in a loop with tools. But "a model in a
+loop with tools" is a description of behaviour, not a thing you can build.
+
+To build one you need to know its parts — what does the thinking, what does the
+acting, what remembers, and what makes it stop. **That's the next page**, and
+every page after it is a deep dive into one of those parts.
+
+**Next:** [Anatomy of an agent →](../anatomy/)

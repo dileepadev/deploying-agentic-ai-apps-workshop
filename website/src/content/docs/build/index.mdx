@@ -1,0 +1,63 @@
+---
+title: Build
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+Eight steps, from an empty folder to an agent running on a public URL. Nothing
+here assumes you attended the session.
+
+<div class="resume" data-resume=""></div>
+
+| Step | What you do | Done when |
+|---|---|---|
+| [1](01-setup/) | Set up — uv, keys, accounts | `/health` returns `ok: true` |
+| [2](02-database/) | Create the database | Three tables in Supabase |
+| [3](03-tools/) | Write the tools, expose them over MCP | You call them from the Inspector |
+| [4](04-manual-loop/) | The agent loop, by hand | It answers from your terminal |
+| [5](05-framework/) | The same loop, with a framework | Same answer, a third of the code |
+| [6](06-the-wrong-way/) | Wire it up the wrong way | **You get a timeout.** On purpose. |
+| [7](07-accept-and-poll/) | Fix it: accept and poll | `202` in 200 ms, steps stream live |
+| [8](08-deploy/) | Deploy | A public URL you can send someone |
+
+## Before you start
+
+You need four free accounts and about ten minutes. None of them ask for a card.
+
+| | Where | Why |
+|---|---|---|
+| Google AI Studio key | [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) | the model |
+| Supabase project | [https://supabase.com](https://supabase.com) | Postgres + pgvector |
+| Render account | [https://render.com](https://render.com) | hosting (step 8 only) |
+| GitHub account | [https://github.com](https://github.com) | deploying from a repo |
+
+Plus Python 3.11+ and a code editor.
+
+<Aside type="tip" title="Create your own Gemini key">
+
+
+Free-tier limits are counted **per key**. If a group shares one, you'll all
+rate-limit each other within minutes.
+
+</Aside>
+
+## How the steps work
+
+Each page has the same shape: what you're doing, why, the code, the check that
+it worked, and what usually goes wrong. Steps 6 and 7 are a matched pair — 6
+builds the bug deliberately so 7 has something to fix.
+
+Your progress is remembered in this browser, so you can stop after any step and
+pick it up later.
+
+<Aside type="note" title="You can also just read the finished code">
+
+
+Everything below already exists in the repo. If you'd rather read than type,
+clone it and follow along — the steps tell you which file to open.
+
+</Aside>
+
+---
+
+**[Start with step 1 →](01-setup/)**

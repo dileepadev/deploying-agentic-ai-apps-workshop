@@ -1,0 +1,172 @@
+---
+title: Step 2 · The database
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+<div class="stepbar" data-step="2" data-total="8">
+  <span class="stepbar-label">Step 2 of 8</span>
+  <span class="stepbar-track"><span class="stepbar-fill" style="width:25%"></span></span>
+  <span class="stepbar-done">The database</span>
+</div>
+
+
+
+## Objective
+
+Create the three tables the agent writes to, and understand why the schema looks
+like this.
+
+## Why this step exists
+
+The database isn't storage bolted on at the end — it's the **message bus**
+between the agent and the UI. The agent writes rows; the browser reads rows.
+That's the entire mechanism behind the live "Agent is searching…" display.
+
+Get this right and [step 7](../07-accept-and-poll/) is almost free.
+
+## Run the schema
+
+Open your Supabase project → **SQL Editor** → **New query**. Paste all of
+`database/schema.sql` and hit **Run**.
+
+## What you just created
+
+### `runs` — one row per question
+
+```sql
+create table if not exists runs (
+  id          uuid primary key default gen_random_uuid(),
+  query       text not null,
+  status      text not null default 'queued',   -- queued | running | done | error
+  result      text,                             -- the final answer
+  error       text,                             -- why it failed, if it failed
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+```
+
+This is **the job**. The API creates it instantly and returns its id; the agent
+fills it in later from a background task. The client polls this row until
+`status` is `done` or `error`.
+
+### `steps` — the agent's thought process
+
+```sql
+create table if not exists steps (
+  id          bigserial primary key,
+  run_id      uuid not null references runs(id) on delete cascade,
+  seq         int  not null,                    -- 1, 2, 3... display order
+  label       text not null,                    -- shown in the UI
+  detail      text,                             -- extra info
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists steps_run_seq_idx on steps (run_id, seq);
+```
+
+This is what makes an agent *feel* alive. Every row becomes a line in the UI.
+
+It's also your production debugger: when a run goes wrong on a server you can't
+attach a breakpoint to, you can still read exactly how far it got.
+
+The index matters — the client asks "give me the steps for this run, in order"
+every 1.5 seconds.
+
+### `memories` — long-term memory, for later
+
+```sql
+create extension if not exists vector;
+
+create table if not exists memories (
+  id          bigserial primary key,
+  content     text not null,
+  embedding   vector(768),        -- ⚠️ see below
+  created_at  timestamptz not null default now()
+);
+```
+
+Nothing writes to this yet. It's here so pgvector is ready when you add RAG —
+see [Learn · Memory and RAG](../../learn/memory/).
+
+<Aside type="danger" title="The dimension gotcha">
+
+
+`768` must **exactly** match your embedding model's output dimensions.
+Different models output different sizes. Mismatch it and you get an error at
+insert time — or worse, you build the whole table on the wrong number and
+have to migrate later.
+
+Check your model's output size **first**, then write that line.
+
+</Aside>
+
+## Security: default-deny
+
+```sql
+alter table runs  enable row level security;
+alter table steps enable row level security;
+```
+
+Supabase gives you two keys. The `anon` key is safe in a browser and restricted
+by Row Level Security policies. The `service_role` key **bypasses RLS
+completely** and is what our server uses.
+
+By enabling RLS and writing **no policies at all**, anyone holding the public
+`anon` key gets nothing. Our backend still works because `service_role` ignores
+RLS.
+
+That's the guardrail: the browser can't reach your data even if someone reads
+your frontend source.
+
+## Expected result
+
+Open the **Table Editor**. You should see `runs`, `steps`, and `memories`.
+
+Then restart your server and check [http://localhost:8000/health](http://localhost:8000/health):
+
+```json
+{"ok": true, "database": true, "model": "gemini-flash-latest"}
+```
+
+`database` is now `true` — it was `false` before, because there was nothing to
+query.
+
+## What usually goes wrong
+
+??? failure "`extension \"vector\" is not available`"
+
+    Rare on Supabase, which ships pgvector. If you're on plain Postgres
+    elsewhere, install the extension first — or just delete the `memories` block
+    and the two lines referencing it. Nothing else depends on it.
+
+<details>
+<summary><code>database: false</code> even though the tables exist</summary>
+
+
+Check `SUPABASE_URL` has no trailing slash and looks like
+`https://abcdefghij.supabase.co`. Then confirm you copied the
+**service_role** key, not the `anon` one — the anon key will be blocked by
+the RLS you just enabled, which is exactly what it's supposed to do.
+
+</details>
+
+<details>
+<summary>Everything worked yesterday, today nothing does</summary>
+
+
+Free Supabase projects pause after about a week of inactivity. Open the
+dashboard and resume. **Ping it weekly** if the project matters — a paused
+database looks exactly like a broken app.
+
+</details>
+
+## What's next
+
+The database is ready. Now the agent needs something it can actually *do*.
+
+<div class="stepnav">
+  <a href="../01-setup/">← Step 1 · Set up</a>
+  <span class="spacer"></span>
+  <a href="../03-tools/">Step 3 · Tools over MCP →</a>
+</div>

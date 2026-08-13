@@ -1,0 +1,180 @@
+---
+title: Step 5 · The same loop, with a framework
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+<div class="stepbar" data-step="5" data-total="8">
+  <span class="stepbar-label">Step 5 of 8</span>
+  <span class="stepbar-track"><span class="stepbar-fill" style="width:62.5%"></span></span>
+  <span class="stepbar-done">With a framework</span>
+</div>
+
+
+
+## Objective
+
+Replace the hand-written pipeline with Pydantic AI, and let the model decide what
+to do.
+
+## Why this step exists
+
+You've seen the loop. Now delete it — and get adaptive behaviour, retries, and
+tool schemas for free.
+
+We use [Pydantic AI](https://ai.pydantic.dev/) because it was built by the
+Pydantic team to feel like FastAPI: decorators for tools, type hints for schemas,
+dependency injection for context. If you know FastAPI, you already know most of
+it.
+
+## The agent
+
+```python title="app/agent/research.py"
+from pydantic_ai import Agent, RunContext
+
+agent = Agent(
+    deps_type=Deps,
+    instructions=INSTRUCTIONS,
+    retries=2,
+)
+
+@agent.tool
+async def wiki_search(ctx: RunContext[Deps], query: str, limit: int = 3) -> list[str]:
+    """Search Wikipedia and return matching page titles.
+
+    Args:
+        query: What to search for. Specific beats broad.
+        limit: How many titles to return.
+    """
+    # ← this log call is why the UI can show live progress
+    await ctx.deps.steps.log("Searching Wikipedia", f'Looking for: "{query}"')
+    return await wikipedia.search(query, limit=limit)
+```
+
+Two things worth pausing on:
+
+- **`deps_type=Deps`** is dependency injection — the same idea as FastAPI's
+  `Depends`. It's how the tools get the step logger without reaching for a
+  global.
+- **The `steps.log(...)` call** runs *before* the tool does its work, so the
+  client polling `/runs/{id}` sees what's happening now rather than what just
+  finished. Log first, then work.
+
+And that's it. No pipeline. The instructions tell the model what good research
+looks like; the model decides how to get there.
+
+## Running it
+
+```python title="app/agent/research.py"
+async def run_agent(run_id: str, query: str) -> None:
+    steps = StepLogger(run_id)
+    try:
+        await db.update_run(run_id, status="running")
+        await steps.log("Planning the research", "Working out what to look up")
+
+        result = await agent.run(query, model=build_model(), deps=Deps(steps=steps))
+
+        await steps.log("Saving the result", "Done")
+        await db.update_run(run_id, status="done", result=result.output)
+
+    except Exception as exc:
+        message = f"{type(exc).__name__}: {exc}"
+        await db.update_run(run_id, status="error", error=message)   # ← always
+```
+
+**Always record the failure.** A run that dies silently looks *identical* to a
+run that is merely slow, and you do not want to be telling those apart in front
+of an audience. Writing the error to the row means the UI can show it.
+
+<Aside type="note" title="Why model= is passed at run time">
+
+
+The model is built lazily and cached, not created when the module is
+imported. That means the tests can import this file without a real API key,
+and a bad key shows up as a failed run you can see in the UI rather than a
+server that won't start.
+
+</Aside>
+
+## What you get for free
+
+| | Manual loop | Pydantic AI |
+|---|---|---|
+| Tool schemas | you write them | generated from type hints |
+| Multiple search rounds | no | yes, if the model wants |
+| Stopping early | no | yes |
+| Retry on bad tool args | no | `retries=2` |
+| Lines of code | ~80 | ~40 |
+| Switching model provider | rewrite `llm.py` | one line |
+
+That last row is the one that matters for a workshop about deployment: the
+architecture you're learning doesn't expire when the model does.
+
+## Try it
+
+The full loop, with a **fake model** — no API key, no quota, no network:
+
+```bash
+uv run --extra dev pytest tests/test_agent.py -v
+```
+
+Look at `test_agent_calls_tools_and_logs_steps`. It runs the real agent against
+Pydantic AI's `TestModel`, which calls every registered tool once. That proves
+the wiring — tools registered, deps injected, steps written — which is the part
+that actually breaks.
+
+Then the real thing, once step 7 is wired up.
+
+## Expected result
+
+```text
+tests/test_agent.py::test_step_ceiling_stops_a_runaway_agent PASSED
+tests/test_agent.py::test_steps_are_numbered_in_order PASSED
+tests/test_agent.py::test_search_returns_empty_list_when_wikipedia_fails PASSED
+tests/test_agent.py::test_read_page_returns_none_when_there_is_no_summary PASSED
+tests/test_agent.py::test_agent_calls_tools_and_logs_steps PASSED
+tests/test_agent.py::test_a_failed_run_is_recorded_not_swallowed PASSED
+```
+
+## What usually goes wrong
+
+<details>
+<summary>The agent calls the same tool over and over</summary>
+
+
+Your instructions are too vague, or the tool description is. Both are prompt.
+Tighten `INSTRUCTIONS` — ours explicitly says *"four or five pages is
+plenty"* for exactly this reason.
+
+The step ceiling in `app/agent/steps.py` will stop it at 12 either way,
+which is the guardrail earning its keep.
+
+</details>
+
+<details>
+<summary><code>RuntimeError: Agent exceeded 12 steps</code></summary>
+
+
+Working as designed. Raise `MAX_AGENT_STEPS` in `.env` if your question
+genuinely needs more research, but check first that the agent isn't looping.
+
+</details>
+
+<details>
+<summary>Tool arguments come back nonsensical</summary>
+
+
+The model is reading your docstring. Make the `Args:` descriptions more
+specific — that's usually the entire fix.
+
+</details>
+
+## What's next
+
+The agent works. Now put it behind an API — the way everyone does it first.
+
+<div class="stepnav">
+  <a href="../04-manual-loop/">← Step 4 · The loop by hand</a>
+  <span class="spacer"></span>
+  <a href="../06-the-wrong-way/">Step 6 · The wrong way →</a>
+</div>

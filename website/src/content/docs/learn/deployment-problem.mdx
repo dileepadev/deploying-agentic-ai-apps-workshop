@@ -1,0 +1,219 @@
+---
+title: 7 · Why deployment is hard
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+This is the page the workshop exists for. If you only read one, read this.
+
+Everything so far has been building to a single number. [Page 1](../agents/)
+said an agent takes 30–60 seconds instead of two. [Page 2](../anatomy/) showed
+why — the loop makes 5–10 model calls, each carrying everything before it.
+[Page 3](../tool-calling/) counted the round trips.
+
+Nobody's misbehaving. That's just what the loop costs. And it's about to be
+fatal.
+
+## It works on your laptop
+
+Your agent runs. It takes 40 seconds, you watch the logs scroll, you get an
+answer. You deploy it. Someone clicks "Run". Thirty seconds later:
+
+```text
+504 Gateway Timeout
+```
+
+Nothing in your code changed. Nothing is broken. And raising the timeout won't
+fix it.
+
+## The Timeout Trap
+
+The web was built on an assumption: **a request is short.** A browser asks for
+something, the server produces it quickly, the connection closes. Everything
+between the browser and your code is built around that assumption:
+
+```text
+Browser  →  CDN  →  Load balancer  →  Reverse proxy  →  Your server
+             ↑           ↑                  ↑
+          timeout     timeout            timeout
+```
+
+Every one of those hops has its own patience, and none of them asked you. Any
+one of them can give up while your agent is still thinking — and the moment one
+does, the user gets an error, even though your server is still happily working.
+
+On localhost there are **no hops**. That's the entire reason it works there.
+You've been testing in the one environment where the problem cannot occur.
+
+<Aside type="danger" title="Why the work being *finished* doesn't help">
+
+
+The nastiest part: your agent may complete successfully after the proxy has
+already given up. The work is done. The answer exists. The user got a 504
+and has no way to ever see it.
+
+You've spent the tokens and delivered nothing.
+
+</Aside>
+
+## "Just raise the timeout"
+
+Sometimes you can, a bit. It still doesn't work, for four reasons:
+
+1. **You don't control every hop.** Corporate proxies, mobile carriers, CDNs.
+2. **A phone switching from Wi-Fi to mobile data drops the connection.** No
+   timeout setting survives a change of network.
+3. **You're renting a request for five minutes to do five minutes of work.** On
+   a small free instance, a handful of concurrent runs and you're out of
+   workers — everyone queues, then everyone times out.
+4. **A hung request tells the user nothing.** Even when it works, they stare at
+   a spinner with no idea whether it's 5 seconds or 5 minutes away.
+
+Raising the timeout doesn't remove the wall. It moves it, and makes the failure
+slower and more expensive.
+
+## The pattern that fixes it
+
+> ### Never run the agent inside the HTTP request.
+
+Accept the job. Return an ID immediately. Do the work in the background. Let the
+client ask how it's going.
+
+```text
+POST /runs        →  202 {"run_id": "abc"}        ~200 ms, always
+[background]      →  agent runs, writing each step to the database
+GET  /runs/abc    →  {status, steps[]}            client polls every 1.5 s
+```
+
+Now look at what happened to every problem above:
+
+| Problem | Status |
+|---|---|
+| Proxy times out | Gone — no request is ever long |
+| Network switches | Gone — the client just polls again |
+| Workers exhausted | Gone — requests last milliseconds |
+| User sees nothing | Gone — **each poll returns the steps so far** |
+
+That last row is a bonus nobody expects, and it's worth understanding how it
+falls out of the design rather than being built on purpose.
+
+### Why this needs the database
+
+Once the work leaves the request, the answer can't be a return value any more.
+Nobody's waiting for it. So the run has to live somewhere both sides can reach —
+and that's the whole reason this project has tables.
+
+**A run is a row.** When you ask a question, the API immediately inserts a row
+in `runs` and hands you its id. That row *is* the job. Its `status` moves
+`queued → running → done` (or `error`). Nothing about the agent's progress lives
+in memory — if you want to know how a run is going, you read the database.
+
+**A step is also a row.** Before each phase of work, the agent writes to `steps`:
+
+| seq | label | detail |
+|---|---|---|
+| 1 | Planning the research | Working out what to look up |
+| 2 | Searching Wikipedia | Looking for: "photovoltaic effect" |
+| 3 | Reading a source | Solar cell |
+| 4 | Saving the result | Done |
+
+This is the [working memory](../memory/) from page 5, doing a second job. The UI
+polls, gets those rows, and renders them.
+
+**"Agent is thinking…" is just a table.** When people see that for the first
+time it usually lands harder than any diagram — there's no magic in it at all,
+and you got it for free out of the same mechanism that fixed the timeout.
+
+### The one line that does it
+
+```python title="app/main.py"
+@app.post("/runs", status_code=202)
+async def create_run(body: RunRequest, background: BackgroundTasks):
+    run_id = await db.create_run(body.query)
+    background.add_task(research.run_agent, run_id, body.query)
+    return {"run_id": run_id, "status": "queued", "poll": f"/runs/{run_id}"}
+```
+
+`add_task` queues the work to run *after* the response has been sent. Change
+that one line to `await research.run_agent(...)` and you have rebuilt the bug.
+
+`202 Accepted` is the honest status code: *"I have taken your request, I have
+not finished it."*
+
+## The catch nobody mentions
+
+`BackgroundTasks` runs **inside your server process**. If the process restarts
+mid-run — a deploy, a crash, a free-tier instance being recycled — the job
+vanishes. The row sits at `running` forever.
+
+That's fine for a demo, and you should know it's a real limitation rather than
+discover it later.
+
+The upgrade path, in order of effort:
+
+1. **Mark stale runs as failed.** A run stuck at `running` for 10 minutes is
+   dead; say so in the UI instead of spinning forever.
+2. **A real task queue** (Celery, ARQ, Dramatiq) with a separate worker process.
+   Now a web restart doesn't kill jobs.
+3. **Durable execution** ([DBOS](https://www.dbos.dev/), Temporal, Prefect).
+   Each step is checkpointed to Postgres, so a crash *resumes* rather than
+   restarts. Pydantic AI supports all three directly.
+
+The architecture doesn't change for any of these. You're replacing one line of
+"how the background work is scheduled". That's what makes the pattern worth
+learning first.
+
+## Why polling, and not WebSockets or SSE
+
+A fair question, and the answer is unglamorous:
+
+| | Polling | SSE / WebSockets |
+|---|---|---|
+| Works through every proxy | yes | usually |
+| Survives Wi-Fi → mobile switch | yes | reconnect logic |
+| Effort in a mobile client | 4 lines | a library |
+| Debuggable with curl | yes | not really |
+| Nicer UX when it works | — | yes |
+
+Ship polling. Upgrade to SSE when you've outgrown it. Every second of latency
+you save with SSE is worth less than a demo that works on conference Wi-Fi.
+
+## How we use this in the demo
+
+Both versions are in the repo, side by side, and the web client has a **Naive
+mode** checkbox that switches between them.
+
+Tick it and ask a question: same agent, same answer, but a blank 30-second wait
+with no idea whether it's working. Untick it and watch the steps stream in.
+
+That toggle is the most persuasive thing in the entire workshop, and it's why
+`/runs/naive` will never be deleted.
+
+<div class="inrepo">
+<code>app/main.py</code> — <code>create_run()</code> and
+<code>create_run_naive()</code>, about 40 lines apart.<br />
+<code>client/index.html</code> — the Naive mode checkbox and the polling loop.<br />
+<code>tests/test_api.py</code> — a test that fails if anyone moves the agent
+back inside the request.
+</div>
+
+---
+
+## Where this leaves us
+
+Seven pages, and they collapse into one sentence:
+
+> An agent is a loop. A loop takes time. Time doesn't fit in an HTTP request —
+> so hand the work to the background and let the client ask how it's going.
+
+Everything else you've read is either a part of that loop or a consequence of
+moving it.
+
+Two places to go from here. To see the finished shape of the application — the
+browser, the API, the tables, and how a request flows through them — read
+[Stack · Architecture](../../stack/architecture/). It'll make complete sense now.
+
+Or skip it and build the thing, which is more fun. Step 6 has you make this
+exact mistake on purpose, so step 7 has something to fix.
+
+**You now have everything you need. [Start building →](../../build/)**

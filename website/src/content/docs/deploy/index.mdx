@@ -1,0 +1,57 @@
+---
+title: Deploy
+---
+Reference material for getting this — or your own project — onto the internet
+for free.
+
+If you're working through the tutorial, [Build step 8](../build/08-deploy/) is
+the guided version. These pages are what you come back to afterwards.
+
+| Page | For |
+|---|---|
+| [Render](render/) | The primary path. Free web services, deploys from GitHub. |
+| [FastAPI Cloud](fastapi-cloud/) | One command, but read the caveats first. |
+| [Troubleshooting](troubleshooting/) | When it doesn't work, and keeping it alive. |
+
+## The three rules
+
+**1. Secrets live in the platform, never the repo.**
+
+`.env` locally, environment variables in the dashboard in production. The code
+reads `os.environ` either way, so nothing changes between them. If a key ever
+reaches git history, rotate it — deleting the file doesn't help.
+
+**2. Bind to `0.0.0.0`, not `127.0.0.1`.**
+
+Inside a container, binding to localhost means nothing outside can reach you.
+It shows up as "port scan timeout" in the deploy log and wastes an afternoon.
+
+**3. Have a `/health` endpoint.**
+
+Two seconds to answer "is it alive, and can it reach the database?". It's also
+how you wake a sleeping free-tier service before a demo.
+
+## Which platform?
+
+| | Render | FastAPI Cloud | GitHub Pages |
+|---|---|---|---|
+| What for | the backend | the backend | the frontend |
+| Free tier | yes, no card | yes, no card | yes |
+| Sleeps when idle | ~15 min | scale-to-zero | n/a |
+| Deploy method | push to GitHub | `fastapi deploy` | push to GitHub |
+| Maturity | stable | **public beta** | stable |
+| Our recommendation | **primary** | worth trying, second | frontend |
+
+We recommend Render as the main path because it's stable, well-documented, and
+its free-tier behaviour is known. FastAPI Cloud is genuinely nice and worth
+deploying to as a second target — comparing two platforms *is* deployment
+learning — but read [the caveats](fastapi-cloud/) before relying on it for
+something that matters.
+
+## The honest summary
+
+> Free tier isn't a smaller paid tier. It's a **different set of trade-offs**:
+> your server sleeps, your database pauses, your model rate-limits, and your
+> disk forgets. You're trading money for latency and reliability.
+>
+> That's a fine trade for a demo. Know that you're making it.

@@ -1,0 +1,140 @@
+---
+title: 3 · Tool calling
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+The anatomy called tools "the hands" — the part that connects the loop to the
+real world. This page is how that connection actually works, and it's the one
+mechanism in this workshop that surprises almost everybody.
+
+## A tool is just a function
+
+A **tool** is a normal function that the model is allowed to ask for. That's the
+whole definition. There is no special magic in the word, and no special kind of
+code involved:
+
+```python
+async def wiki_search(query: str, limit: int = 3) -> list[str]:
+    """Search Wikipedia and return matching page titles."""
+```
+
+You could call that function yourself from a Python shell. Nothing about it
+knows an AI exists.
+
+## The model never runs your code
+
+This is the part worth slowing down for, because the mental model most people
+arrive with is wrong.
+
+<Aside type="note" title="The model cannot execute anything">
+
+
+A model can only produce text. It cannot run a function, open a connection,
+or touch your database. Not "we don't let it" — it has no mechanism to.
+
+So what actually happens is that you send the model a **description** of your
+functions. When it wants one, it replies with a structured message that
+means *"please call `wiki_search` with `query='photovoltaic effect'`"*.
+
+**Your program** runs the function. Then you send the result back as another
+message, and the model carries on from there.
+
+</Aside>
+
+So a "tool call" isn't a call at all. It's a conversation, in which the model
+makes requests and your code decides whether to honour them:
+
+```text
+you   → here is the question, and here are two functions you may use
+model → I'd like wiki_search(query="photovoltaic effect")
+you   → [you run it] here is what it returned: ["Solar cell", "Photovoltaics"]
+model → I'd like wiki_read(title="Solar cell")
+you   → [you run it] here is the summary: "A solar cell converts..."
+model → here is the answer
+```
+
+Two things follow from that trace, and both matter later:
+
+**Every arrow is a separate HTTP request to the model**, carrying the *entire*
+conversation so far — because, as [page 2](../anatomy/) said, the model
+remembers nothing between turns. That's why one agent run costs 5–10 calls and
+why the context grows with every turn.
+
+**Your code is in the middle of every exchange.** Nothing reaches the outside
+world without passing through a function you wrote. That's not just a safety
+detail; it's the reason guardrails are possible at all, which is
+[page 6](../guardrails/).
+
+## How the model knows what's available
+
+From the function signature and the docstring — nothing else.
+
+This is why the docstrings in this project are unusually careful. **They aren't
+documentation, they're prompt:**
+
+```python title="app/agent/research.py"
+@agent.tool
+async def wiki_search(ctx: RunContext[Deps], query: str, limit: int = 3) -> list[str]:
+    """Search Wikipedia and return matching page titles.
+
+    Args:
+        query: What to search for. Specific beats broad.
+        limit: How many titles to return.
+    """
+    await ctx.deps.steps.log("Searching Wikipedia", f'Looking for: "{query}"')
+    return await wikipedia.search(query, limit=limit)
+```
+
+Pydantic AI reads the type hints and the docstring, and generates the schema it
+sends to the model. Write a vague description and the model uses the tool badly
+— wrong arguments, wrong moments, or not at all.
+
+**Rewriting a docstring is genuinely the fix for a lot of agent misbehaviour**,
+and it's the cheapest debugging you'll ever do.
+
+## Two rules worth more than any framework
+
+**1. Tools should be narrow.** `save_note(text)` is a tool. `execute_sql(query)`
+is a loaded gun. Give the agent the smallest door that does the job — the model
+chooses the arguments, and it will eventually choose ones you didn't imagine.
+
+**2. Tools should fail politely.** Returning `[]` for "search found nothing"
+lets the agent notice and try something else. Raising an exception ends the run.
+Look at `app/tools/wikipedia.py` — both functions swallow errors and return an
+empty result on purpose.
+
+## How we use this in the demo
+
+Two tools, both read-only, both against a free public API:
+
+| Tool | Does | Can it break anything? |
+|---|---|---|
+| `wiki_search(query, limit)` | returns page titles | no |
+| `wiki_read(title)` | returns one page summary | no |
+
+The agent decides how many times to call each. Watch the `steps` table during a
+run and you'll usually see it search two or three times before it reads
+anything — exactly the behaviour the instructions asked for.
+
+<div class="inrepo">
+<code>app/tools/wikipedia.py</code> — the functions.<br />
+<code>app/agent/research.py</code> — where they're registered with
+<code>@agent.tool</code>.
+</div>
+
+---
+
+## Where this leaves us
+
+Our two functions live in the same folder as our agent, so wiring them together
+was a decorator and nothing more.
+
+But tools are useful things. Once you've built a good one, the obvious next
+question is whether anything *other* than your own program can use it — your
+editor's AI, Claude Desktop, a colleague's agent. None of those can import your
+Python file.
+
+Crossing that boundary needs an agreed format, and that's what the next page is.
+
+**Next:** [MCP →](../mcp/)
