@@ -62,13 +62,17 @@ async def generate(
 
         last_error = f"[{response.status_code}] {response.text[:300]}"
 
-        if response.status_code in (429, 500, 502, 503, 504):
-            if attempt < max_retries - 1:
-                await asyncio.sleep(delay)
-                delay *= 2  # 2s, 4s, 8s...
-                continue
+        if (
+            response.status_code in (429, 500, 502, 503, 504)
+            and attempt < max_retries - 1
+        ):
+            await asyncio.sleep(delay)
+            delay *= 2  # 2s, 4s, 8s...
+            continue
 
-        # 400/403/404 mean *you* got something wrong — retrying won't help.
+        # Two ways to land here: 400/403/404, where *you* got something wrong
+        # and retrying won't help, or a retryable status that has run out of
+        # attempts. Either way there is nothing left to try.
         break
 
     raise RuntimeError(f"Gemini call failed: {last_error}")
