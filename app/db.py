@@ -13,6 +13,7 @@ SQLAlchemy) is usually the better choice. The table design below doesn't change.
 
 from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -92,6 +93,15 @@ async def update_run(run_id: str, **fields: Any) -> None:
 
 
 async def get_run(run_id: str) -> dict | None:
+    # `id` is a uuid column, so anything that isn't a uuid cannot match a row —
+    # and Postgres doesn't shrug at that, it rejects the whole filter with a
+    # 400. Without this check a stale bookmark or a truncated copy-paste comes
+    # back as a 500 instead of the 404 it obviously is.
+    try:
+        UUID(run_id)
+    except ValueError:
+        return None
+
     rows = _check(
         await _client.get("/runs", params={"id": f"eq.{run_id}", "select": "*"})
     )

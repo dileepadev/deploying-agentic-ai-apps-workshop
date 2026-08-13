@@ -98,6 +98,22 @@ def test_unknown_run_is_a_404_not_a_500(client):
         assert client.get("/runs/does-not-exist").status_code == 404
 
 
+async def test_a_malformed_run_id_never_reaches_the_database():
+    """What the mocked test above cannot see.
+
+    `runs.id` is a uuid column. Ask PostgREST for `id=eq.does-not-exist` and
+    Postgres rejects the whole filter with a 400, which used to surface as a
+    500 — so the promise in the test above held only as long as `get_run` was
+    mocked out. Against a real database it did not.
+    """
+    from app import db
+
+    with patch.object(db._client, "get") as http_get:
+        assert await db.get_run("does-not-exist") is None
+
+    http_get.assert_not_called()
+
+
 def test_docs_page_switches_swagger_ui_to_dark(client):
     """/docs is still Swagger UI, plus the class that turns its dark theme on."""
     page = client.get("/docs")
