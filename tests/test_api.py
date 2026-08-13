@@ -98,6 +98,16 @@ def test_unknown_run_is_a_404_not_a_500(client):
         assert client.get("/runs/does-not-exist").status_code == 404
 
 
+def test_docs_page_switches_swagger_ui_to_dark(client):
+    """/docs is still Swagger UI, plus the class that turns its dark theme on."""
+    page = client.get("/docs")
+
+    assert page.status_code == 200
+    assert "SwaggerUIBundle" in page.text  # still FastAPI's own page
+    assert "dark-mode" in page.text
+    assert "prefers-color-scheme: dark" in page.text
+
+
 def test_mcp_is_mounted(client):
     """The MCP endpoint answers a protocol handshake."""
     response = client.post(

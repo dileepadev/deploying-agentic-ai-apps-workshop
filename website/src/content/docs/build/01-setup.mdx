@@ -139,7 +139,9 @@ Open [http://localhost:8000/health](http://localhost:8000/health). You want:
 ```
 
 Also open [http://localhost:8000/docs](http://localhost:8000/docs) — FastAPI generates that from your code,
-and you'll use it to test the deployed version later.
+and you'll use it to test the deployed version later. It follows your system's
+light/dark setting: Swagger UI has had a dark theme since 5.31, and `app/main.py`
+adds the few lines that switch it on.
 
 ## What usually goes wrong
 

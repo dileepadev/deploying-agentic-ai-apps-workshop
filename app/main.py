@@ -16,6 +16,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from app import config, db, llm
@@ -44,6 +46,8 @@ app = FastAPI(
     description="A deliberately slow AI agent, deployed the right way.",
     version="1.0.0",
     lifespan=lifespan,
+    # Turned off so we can serve /docs ourselves below, with dark mode on.
+    docs_url=None,
 )
 
 # --- CORS --------------------------------------------------------------------
@@ -70,6 +74,34 @@ app.add_middleware(
 # Once deployed, add https://<your-service>/mcp to Claude Desktop or Claude Code
 # and your tools show up there.
 app.mount("/mcp", mcp_app)
+
+# --- Docs --------------------------------------------------------------------
+# Swagger UI has shipped a real dark theme since 5.31, and FastAPI already loads
+# the current 5.x from its CDN — so the CSS is there, just never switched on.
+# It hangs off a `dark-mode` class on <html>, which Swagger UI only sets itself
+# from inside its standalone topbar, and FastAPI doesn't render that topbar. So
+# we set the class ourselves and follow the reader's OS setting.
+#
+# Injected at the end of <head>, after the stylesheet and before the body
+# paints, so there's no white flash on the way to dark.
+_FOLLOW_OS_THEME = """
+<script>
+  (() => {
+    const dark = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () =>
+      document.documentElement.classList.toggle("dark-mode", dark.matches);
+    apply();
+    dark.addEventListener("change", apply);
+  })();
+</script>
+</head>"""
+
+
+@app.get("/docs", include_in_schema=False)
+async def docs():
+    """FastAPI's own /docs page, with one script added to it."""
+    page = get_swagger_ui_html(openapi_url=app.openapi_url, title=f"{app.title} — API")
+    return HTMLResponse(page.body.decode().replace("</head>", _FOLLOW_OS_THEME))
 
 
 class RunRequest(BaseModel):
