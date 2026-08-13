@@ -1,0 +1,61 @@
+[project]
+name = "research-agent"
+version = "1.0.0"
+description = "A multi-step AI agent, deployed the right way — workshop demo."
+readme = "README.md"
+
+# 3.11 is the floor because the agent code uses `X | None` type syntax freely and
+# because every free host we target ships 3.11+. uv installs this for you if you
+# don't have it — you don't need to go and find a Python.
+requires-python = ">=3.11"
+
+dependencies = [
+    # The web framework. Gives us the API, request validation, and /docs for
+    # free. The `standard` extra bundles the server (uvicorn) and the
+    # `fastapi dev`/`fastapi run` CLI.
+    "fastapi[standard]>=0.115,<1.0",
+    # One HTTP client for everything we talk to: Supabase, Wikipedia, and Gemini.
+    "httpx>=0.27,<1.0",
+    # Reads .env into the environment when running locally.
+    "python-dotenv>=1.0,<2.0",
+    # The agent framework. Built by the Pydantic team to feel like FastAPI, which
+    # is why it costs almost no new concepts once you know FastAPI.
+    "pydantic-ai>=2.0,<3.0",
+    # Turns our tool functions into an MCP server other AI clients can call.
+    "fastmcp>=3.0,<4.0",
+]
+
+[project.optional-dependencies]
+# Not needed to run the app. `uv sync --group dev` if you want to run the tests.
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "respx>=0.21",
+]
+# The workshop website is an Astro project — see website/README.md.
+# It is built with npm, not uv, so there is no docs group here.
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff.lint]
+# BLE001 (blind `except Exception`) is off by design, not by oversight. Every
+# instance in this codebase is one of two deliberate, documented patterns:
+#   - a background-task boundary (app/agent/research.py) that must not let
+#     ANYTHING escape, because nothing else is watching a queued task
+#   - a tool "failing politely" (app/tools/wikipedia.py, app/db.py) so a
+#     flaky network degrades one step instead of ending the whole run
+# Both are explained in prose right next to the `except` that triggers this.
+ignore = ["BLE001"]
+
+[tool.uv]
+# Keep the two extras installable as groups.
+default-groups = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
