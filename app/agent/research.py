@@ -1,0 +1,142 @@
+"""The research agent.
+
+This is the part that takes 30-60 seconds, and that's the whole point of the
+session: it is far too slow to live inside an HTTP request.
+
+WHAT CHANGED FROM THE HAND-WRITTEN VERSION
+
+`app/agent/manual_loop.py` runs a fixed pipeline: plan, then search, then read,
+then write. We decide the order; the model just fills in the blanks.
+
+Here the model decides. We hand it two tools and a goal, and it chooses what to
+search for, which pages are worth reading, and when it has enough to answer.
+That is the actual difference between "a script that calls an LLM" and "an
+agent" — who owns the control flow.
+
+Read both files side by side. The comparison teaches more than either alone.
+
+THE STEP LOG
+
+Each tool logs a step to the database before it does its work, so the client
+polling `GET /runs/{id}` can show what's happening *now*, not what just
+finished. `deps` is how the tools get hold of the logger — it's Pydantic AI's
+dependency injection, the same idea as FastAPI's `Depends`.
+"""
+
+import sys
+from dataclasses import dataclass
+from functools import cache
+
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.providers.google import GoogleProvider
+
+from app import config, db
+from app.agent.steps import StepLogger
+from app.tools import wikipedia
+
+INSTRUCTIONS = """You are a careful research assistant.
+
+Given a question, research it using the tools available to you:
+  1. Use wiki_search to find pages. Prefer specific, factual queries over broad
+     ones. Search two or three times with different angles.
+  2. Use wiki_read on the titles that look most relevant.
+  3. Answer using ONLY what those sources actually say.
+
+Write 3-5 short paragraphs in plain language a first-year university student
+would understand. If the sources don't actually answer the question, say so
+plainly instead of guessing. End with a "Sources:" list of the titles you used.
+
+Keep your research proportionate: four or five pages is plenty."""
+
+
+@dataclass
+class Deps:
+    """Everything the tools need that isn't a tool argument.
+
+    Pydantic AI passes this to every tool via `RunContext`. It's how the tools
+    get the step logger without us reaching for a global.
+    """
+
+    steps: StepLogger
+
+
+@cache
+def build_model() -> GoogleModel:
+    """Create the model, once.
+
+    Deliberately NOT called at import time. Building it lazily means this module
+    can be imported — by the tests, or by `fastmcp dev` — without a live API
+    key, and it means a bad key surfaces as a failed run you can see in the UI
+    rather than a server that won't boot.
+    """
+    return GoogleModel(
+        config.GEMINI_MODEL,
+        provider=GoogleProvider(api_key=config.GEMINI_API_KEY),
+    )
+
+
+# No model here — it's passed to `.run()` below. The agent still knows its
+# instructions and its tools, which is everything the import needs.
+agent = Agent(
+    deps_type=Deps,
+    instructions=INSTRUCTIONS,
+    # A second guardrail, independent of the step ceiling: even a well-behaved
+    # loop shouldn't get unlimited retries against a rate-limited free tier.
+    retries=2,
+)
+
+
+@agent.tool
+async def wiki_search(ctx: RunContext[Deps], query: str, limit: int = 3) -> list[str]:
+    """Search Wikipedia and return matching page titles.
+
+    Args:
+        query: What to search for. Specific beats broad.
+        limit: How many titles to return.
+    """
+    await ctx.deps.steps.log("Searching Wikipedia", f'Looking for: "{query}"')
+    return await wikipedia.search(query, limit=limit)
+
+
+@agent.tool
+async def wiki_read(ctx: RunContext[Deps], title: str) -> dict | None:
+    """Read a short summary of one Wikipedia page.
+
+    Args:
+        title: An exact page title, as returned by wiki_search.
+    """
+    await ctx.deps.steps.log("Reading a source", title)
+    return await wikipedia.read_page(title)
+
+
+async def run_agent(run_id: str, query: str) -> None:
+    """Run the whole research job. Called from a background task.
+
+    Nothing here returns a value to the user. Everything it produces goes into
+    the database, and the client finds out by polling.
+    """
+    steps = StepLogger(run_id)
+
+    try:
+        await db.update_run(run_id, status="running")
+        await steps.log("Planning the research", "Working out what to look up")
+
+        result = await agent.run(query, model=build_model(), deps=Deps(steps=steps))
+
+        await steps.log("Saving the result", "Done")
+        await db.update_run(run_id, status="done", result=result.output)
+
+    except Exception as exc:
+        # A run that dies silently looks EXACTLY like a run that is merely slow,
+        # and you do not want to debug that in front of an audience. Always
+        # record the failure so the UI can show it.
+        message = f"{type(exc).__name__}: {exc}"
+        try:
+            await steps.log("Run failed", message)
+        except Exception as log_exc:
+            # The step ceiling may itself be what failed here — logging that
+            # secondary failure to stderr costs nothing and means it isn't
+            # invisible, which is the one thing this project keeps insisting on.
+            print(f"[run {run_id}] could not record failure step: {log_exc}", file=sys.stderr)
+        await db.update_run(run_id, status="error", error=message)
