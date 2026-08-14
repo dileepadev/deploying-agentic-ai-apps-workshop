@@ -34,7 +34,7 @@ services:
     envVars:
       # sync: false  =>  "ask me for this value in the dashboard, and never
       # store it in the repo". This is how secrets stay out of git.
-      - key: GEMINI_API_KEY
+      - key: LLM_API_KEY
         sync: false
       - key: SUPABASE_URL
         sync: false
@@ -47,8 +47,15 @@ services:
       #
       # `gemini-flash-latest` is an alias Google keeps pointed at the current
       # free Flash model, so this doesn't 404 when a model name is retired.
-      - key: GEMINI_MODEL
+      - key: LLM_MODEL
         value: gemini-flash-latest
+
+      # Which provider serves that model: google | cerebras | openrouter |
+      # openai-compatible. If a free key rate-limits you mid-workshop, change
+      # these three values in the dashboard and redeploy — no code change.
+      # /health reports the provider back so you can confirm the switch took.
+      - key: LLM_PROVIDER
+        value: google
       - key: MAX_AGENT_STEPS
         value: "12"
       # Replace with your real GitHub Pages origin before you go public.

@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+import config
 from agent import research
 from main import app
 
@@ -20,14 +21,19 @@ def client():
         yield c
 
 
-def test_health_reports_database_and_model(client):
-    """The endpoint you hit to wake a free-tier service before a demo."""
+def test_health_reports_database_model_and_provider(client):
+    """The endpoint you hit to wake a free-tier service before a demo.
+
+    It names the provider too, which is how you confirm a switched-over
+    deployment is really using the key you think it is.
+    """
     with patch("db.ping", return_value=True):
         body = client.get("/health").json()
 
     assert body["ok"] is True
     assert body["database"] is True
     assert body["model"]  # whichever model is configured
+    assert body["provider"] in config.PROVIDERS
 
 
 def test_post_runs_answers_before_the_agent_has_finished(client):

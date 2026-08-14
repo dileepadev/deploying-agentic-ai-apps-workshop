@@ -27,17 +27,64 @@ def _required(name: str) -> str:
     return value
 
 
-GEMINI_API_KEY = _required("GEMINI_API_KEY")
+# --- Which model provider ----------------------------------------------------
+# Gemini is the default and what the whole workshop assumes. The alternatives
+# exist for one practical reason: free keys rate-limit, and "my key died
+# mid-demo" shouldn't end your session. Set LLM_PROVIDER + LLM_API_KEY +
+# LLM_MODEL, redeploy, and the agent carries on — see agent/research.py.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google").strip().lower()
 
-# `gemini-flash-latest` is an alias Google keeps pointed at the current free
-# Flash model. Model names get retired, and a retired name gives you a
-# confusing 404 rather than a helpful error — the alias sidesteps that, which
-# matters for a project you'll come back to in three months.
-#
-# Pin a specific version (e.g. `gemini-3-flash-preview`) if you need the model
-# to stop changing under you. Check https://aistudio.google.com for what's
-# current and what's free.
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
+PROVIDERS = ("google", "cerebras", "openrouter", "openai-compatible")
+
+if LLM_PROVIDER not in PROVIDERS:
+    raise RuntimeError(
+        f"Unknown LLM_PROVIDER: {LLM_PROVIDER!r}\nChoose one of: {', '.join(PROVIDERS)}"
+    )
+
+if LLM_PROVIDER == "google":
+    # The variables were called GEMINI_* before this project grew alternatives,
+    # and they're in every slide, blueprint, and already-deployed service. `or`
+    # takes the first non-empty value, so both spellings keep working.
+    #
+    # The aliases apply to Google ONLY, and deliberately so: a leftover
+    # GEMINI_API_KEY in your .env silently being posted to Groq would fail as a
+    # baffling 401 rather than as "you didn't set LLM_API_KEY".
+    LLM_API_KEY = (
+        os.getenv("LLM_API_KEY", "").strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+        or _required("LLM_API_KEY")
+    )
+    # `gemini-flash-latest` is an alias Google keeps pointed at the current free
+    # Flash model. Model names get retired, and a retired name gives you a
+    # confusing 404 rather than a helpful error — the alias sidesteps that,
+    # which matters for a project you'll come back to in three months.
+    #
+    # Pin a specific version (e.g. `gemini-3-flash-preview`) if you need the
+    # model to stop changing under you. Check https://aistudio.google.com for
+    # what's current and what's free.
+    LLM_MODEL = (
+        os.getenv("LLM_MODEL", "").strip()
+        or os.getenv("GEMINI_MODEL", "").strip()
+        or "gemini-flash-latest"
+    )
+else:
+    LLM_API_KEY = _required("LLM_API_KEY")
+    # No default model for the other providers on purpose. Their catalogues
+    # change constantly and a name we guessed here would 404 silently months
+    # later — the one failure mode this project keeps trying to avoid. Better
+    # to refuse to start and tell you where the list of names lives.
+    LLM_MODEL = _required("LLM_MODEL")
+
+# Only the generic OpenAI-compatible route needs a URL: it's how you reach Groq,
+# Cerebras, Together and anything else that speaks the OpenAI shape without a
+# dedicated provider class. e.g. https://api.groq.com/openai/v1
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip()
+
+if LLM_PROVIDER == "openai-compatible" and not LLM_BASE_URL:
+    raise RuntimeError(
+        "LLM_PROVIDER=openai-compatible also needs LLM_BASE_URL.\n"
+        "Example (Groq): LLM_BASE_URL=https://api.groq.com/openai/v1"
+    )
 
 SUPABASE_URL = _required("SUPABASE_URL").rstrip("/")
 

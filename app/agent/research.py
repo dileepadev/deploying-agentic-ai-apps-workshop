@@ -29,8 +29,14 @@ from functools import cache
 
 import httpx
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.models import Model
 from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.providers.cerebras import CerebrasProvider
 from pydantic_ai.providers.google import GoogleProvider
+from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig, wait_retry_after
 from tenacity import retry_if_exception_type, stop_after_attempt
 
@@ -107,21 +113,69 @@ def retrying_transport(
 
 
 @cache
-def build_model() -> GoogleModel:
+def build_model() -> Model:
     """Create the model, once.
 
     Deliberately NOT called at import time. Building it lazily means this module
     can be imported — by the tests, or by `fastmcp dev` — without a live API
     key, and it means a bad key surfaces as a failed run you can see in the UI
     rather than a server that won't boot.
+
+    THIS FUNCTION IS THE ONLY PART OF THE APP THAT KNOWS WHO GENERATES THE TEXT.
+
+    Everything else — the agent, its tools, the step log, the endpoints, the
+    tests — takes the model as an argument and never asks where it came from.
+    That's what "model-agnostic framework" actually buys you, and it's why a
+    rate-limited key is a config change rather than a rewrite.
+
+    Every branch shares `retrying_transport()`. That matters more on a tighter
+    free tier, not less, so it goes in one place where it can't be forgotten.
     """
-    return GoogleModel(
-        config.GEMINI_MODEL,
-        provider=GoogleProvider(
-            api_key=config.GEMINI_API_KEY,
-            http_client=httpx.AsyncClient(transport=retrying_transport(), timeout=60.0),
-        ),
-    )
+    http_client = httpx.AsyncClient(transport=retrying_transport(), timeout=60.0)
+
+    match config.LLM_PROVIDER:
+        case "google":
+            return GoogleModel(
+                config.LLM_MODEL,
+                provider=GoogleProvider(
+                    api_key=config.LLM_API_KEY, http_client=http_client
+                ),
+            )
+
+        case "cerebras":
+            # Cerebras speaks the OpenAI shape, so it pairs its own provider
+            # (which knows the base URL) with the generic chat model class.
+            return OpenAIChatModel(
+                config.LLM_MODEL,
+                provider=CerebrasProvider(
+                    api_key=config.LLM_API_KEY, http_client=http_client
+                ),
+            )
+
+        case "openrouter":
+            return OpenRouterModel(
+                config.LLM_MODEL,
+                provider=OpenRouterProvider(
+                    api_key=config.LLM_API_KEY, http_client=http_client
+                ),
+            )
+
+        case "openai-compatible":
+            # The catch-all. Most providers expose an OpenAI-shaped endpoint,
+            # so a base URL is enough — no dedicated class, no new dependency.
+            # This is how you reach Groq, Cerebras, Together and friends.
+            return OpenAIChatModel(
+                config.LLM_MODEL,
+                provider=OpenAIProvider(
+                    base_url=config.LLM_BASE_URL,
+                    api_key=config.LLM_API_KEY,
+                    http_client=http_client,
+                ),
+            )
+
+    # config.py validates LLM_PROVIDER at startup, so reaching here means
+    # someone added a name to that tuple and not to this match.
+    raise RuntimeError(f"No model builder for LLM_PROVIDER={config.LLM_PROVIDER!r}")
 
 
 # No model here — it's passed to `.run()` below. The agent still knows its
@@ -186,5 +240,8 @@ async def run_agent(run_id: str, query: str) -> None:
             # The step ceiling may itself be what failed here — logging that
             # secondary failure to stderr costs nothing and means it isn't
             # invisible, which is the one thing this project keeps insisting on.
-            print(f"[run {run_id}] could not record failure step: {log_exc}", file=sys.stderr)
+            print(
+                f"[run {run_id}] could not record failure step: {log_exc}",
+                file=sys.stderr,
+            )
         await db.update_run(run_id, status="error", error=message)

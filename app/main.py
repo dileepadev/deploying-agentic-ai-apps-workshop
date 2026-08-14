@@ -132,8 +132,16 @@ async def health():
     Worth adding to every project you deploy. On a free tier this is also how
     you WAKE it up before a demo — hit it 10 minutes early so the judges don't
     sit through your cold start.
+
+    It reports the provider as well as the model, which is how you confirm a
+    switched-over deployment is really using the key you think it is.
     """
-    return {"ok": True, "database": await db.ping(), "model": config.GEMINI_MODEL}
+    return {
+        "ok": True,
+        "database": await db.ping(),
+        "provider": config.LLM_PROVIDER,
+        "model": config.LLM_MODEL,
+    }
 
 
 # -----------------------------------------------------------------------------
