@@ -12,10 +12,10 @@ import httpx
 import pytest
 from pydantic_ai.models.test import TestModel
 
-from app import config
-from app.agent.research import Deps, agent
-from app.agent.steps import StepLogger
-from app.tools import wikipedia
+import config
+from agent.research import Deps, agent
+from agent.steps import StepLogger
+from tools import wikipedia
 
 # --- guardrails --------------------------------------------------------------
 
@@ -25,7 +25,7 @@ async def test_step_ceiling_stops_a_runaway_agent():
     logger = StepLogger("run-1")
     calls = []
 
-    with patch("app.db.add_step", side_effect=lambda *a: calls.append(a)):
+    with patch("db.add_step", side_effect=lambda *a: calls.append(a)):
         for _ in range(config.MAX_AGENT_STEPS):
             await logger.log("working")
 
@@ -40,7 +40,7 @@ async def test_steps_are_numbered_in_order():
     logger = StepLogger("run-1")
     seen = []
 
-    with patch("app.db.add_step", side_effect=lambda rid, seq, *a: seen.append(seq)):
+    with patch("db.add_step", side_effect=lambda rid, seq, *a: seen.append(seq)):
         await logger.log("first")
         await logger.log("second")
         await logger.log("third")
@@ -105,7 +105,7 @@ async def test_agent_calls_tools_and_logs_steps(steps_log):
 
 async def test_a_failed_run_is_recorded_not_swallowed(steps_log):
     """A run that dies silently looks identical to a run that is merely slow."""
-    from app.agent import research
+    from agent import research
 
     updates = {}
 
@@ -113,8 +113,8 @@ async def test_a_failed_run_is_recorded_not_swallowed(steps_log):
         updates.update(fields)
 
     with (
-        patch("app.db.update_run", side_effect=fake_update),
-        patch("app.db.add_step"),
+        patch("db.update_run", side_effect=fake_update),
+        patch("db.add_step"),
         patch.object(research, "build_model", side_effect=RuntimeError("bad key")),
     ):
         await research.run_agent("run-1", "anything")
@@ -131,7 +131,7 @@ async def test_a_failed_run_is_recorded_not_swallowed(steps_log):
 
 async def _send(handler) -> tuple[int, int]:
     """Drive the real transport against `handler`. Returns (status, attempts)."""
-    from app.agent.research import retrying_transport
+    from agent.research import retrying_transport
 
     attempts = 0
 

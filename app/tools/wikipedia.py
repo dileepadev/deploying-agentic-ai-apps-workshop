@@ -27,7 +27,7 @@ nothing else in the project changes.
 
 import httpx
 
-from app import config
+import config
 
 WIKI_API = "https://en.wikipedia.org/w/api.php"
 WIKI_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary"

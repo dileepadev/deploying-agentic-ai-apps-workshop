@@ -54,7 +54,7 @@ mcp-session-id: {{initialize.response.headers.mcp-session-id}}
 ### 3. What tools does this server have?
 #
 # The descriptions and argument schemas here are generated from the docstrings
-# and type hints in `app/tools/server.py` — that's the whole reason those
+# and type hints in `../tools/server.py` — that's the whole reason those
 # docstrings are written for a reader who isn't you. This is what a model sees
 # when it decides which tool to reach for.
 POST {{baseUrl}}/mcp/

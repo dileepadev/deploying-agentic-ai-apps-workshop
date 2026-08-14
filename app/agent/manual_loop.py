@@ -23,16 +23,16 @@ flow. Everything else â€” the deployment problem this whole workshop is about â€
 identical either way, which is exactly why the deployment lesson outlives your
 choice of framework.
 
-Run it on its own:
+Run it on its own (from app/):
 
-    uv run python -m app.agent.manual_loop "how do solar panels work?"
+    uv run python -m agent.manual_loop "how do solar panels work?"
 """
 
 import asyncio
 import sys
 
-from app import llm
-from app.tools import wikipedia
+import llm
+from tools import wikipedia
 
 PLANNER_SYSTEM = """You are a research planner.
 Given a user's question, break it into 2-3 short search queries that together

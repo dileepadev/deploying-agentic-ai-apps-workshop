@@ -34,9 +34,10 @@ from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig, wait_retry_after
 from tenacity import retry_if_exception_type, stop_after_attempt
 
-from app import config, db
-from app.agent.steps import StepLogger
-from app.tools import wikipedia
+import config
+import db
+from agent.steps import StepLogger
+from tools import wikipedia
 
 INSTRUCTIONS = """You are a careful research assistant.
 

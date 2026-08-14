@@ -21,7 +21,7 @@ dependencies = [
     # The agent framework. Built by the Pydantic team to feel like FastAPI, which
     # is why it costs almost no new concepts once you know FastAPI.
     #
-    # `app/agent/research.py` imports `pydantic_ai.retries` and tenacity to survive
+    # `agent/research.py` imports `pydantic_ai.retries` and tenacity to survive
     # the 429s a free-tier key hands out mid-run. No extra is needed here: the
     # `pydantic-ai` meta-package already depends on `pydantic-ai-slim[retries]`,
     # which is what brings tenacity in. (`pydantic-ai[retries]` does not exist.)
@@ -37,8 +37,8 @@ dev = [
     "pytest-asyncio>=0.24",
     "respx>=0.21",
 ]
-# The workshop website is an Astro project — see website/README.md.
-# It is built with npm, not uv, so there is no docs group here.
+# The workshop website is a separate Astro project, one level up at
+# ../website — it's built with npm, not uv, so there is no docs group here.
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -47,9 +47,9 @@ testpaths = ["tests"]
 [tool.ruff.lint]
 # BLE001 (blind `except Exception`) is off by design, not by oversight. Every
 # instance in this codebase is one of two deliberate, documented patterns:
-#   - a background-task boundary (app/agent/research.py) that must not let
+#   - a background-task boundary (agent/research.py) that must not let
 #     ANYTHING escape, because nothing else is watching a queued task
-#   - a tool "failing politely" (app/tools/wikipedia.py, app/db.py) so a
+#   - a tool "failing politely" (tools/wikipedia.py, db.py) so a
 #     flaky network degrades one step instead of ending the whole run
 # Both are explained in prose right next to the `except` that triggers this.
 ignore = ["BLE001"]
@@ -63,4 +63,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["app"]
+# Flat layout: this pyproject.toml lives next to the code (no src/ or nested
+# app/ package dir), so hatchling needs each piece named explicitly instead of
+# relying on its normal "package dir matches project name" auto-detection.
+packages = ["agent", "tools"]
+include = ["main.py", "config.py", "db.py", "llm.py"]

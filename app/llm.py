@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-from app import config
+import config
 
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 

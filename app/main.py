@@ -8,8 +8,8 @@
         [background]      -> the agent works, writing each step to the database
         GET  /runs/{id}   -> {"run": ..., "steps": [...]}   client polls this
 
-Run locally:
-    uv run fastapi dev app/main.py
+Run locally (from app/):
+    uv run fastapi dev main.py
 """
 
 from contextlib import asynccontextmanager
@@ -20,10 +20,12 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from app import config, db, llm
-from app.agent import research
-from app.tools import server as mcp_server
-from app.tools import wikipedia
+import config
+import db
+import llm
+from agent import research
+from tools import server as mcp_server
+from tools import wikipedia
 
 # The MCP server is a full ASGI app with its own startup/shutdown. Mounting it
 # is not enough — its lifespan has to run too, or the /mcp endpoint 500s on the

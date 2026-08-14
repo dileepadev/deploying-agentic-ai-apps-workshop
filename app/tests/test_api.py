@@ -10,8 +10,8 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.agent import research
-from app.main import app
+from agent import research
+from main import app
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def client():
 
 def test_health_reports_database_and_model(client):
     """The endpoint you hit to wake a free-tier service before a demo."""
-    with patch("app.db.ping", return_value=True):
+    with patch("db.ping", return_value=True):
         body = client.get("/health").json()
 
     assert body["ok"] is True
@@ -44,7 +44,7 @@ def test_post_runs_answers_before_the_agent_has_finished(client):
     # awaiting the agent directly instead of queueing it, the agent would still
     # execute and `queued` below would be empty.
     with (
-        patch("app.db.create_run", return_value="run-abc"),
+        patch("db.create_run", return_value="run-abc"),
         patch.object(BackgroundTasks, "add_task", autospec=True) as add_task,
     ):
         response = client.post("/runs", json={"query": "how do solar panels work?"})
@@ -74,10 +74,10 @@ def test_the_naive_endpoint_does_the_opposite(client):
         awaited.append(run_id)
 
     with (
-        patch("app.db.create_run", return_value="run-xyz"),
-        patch("app.db.get_run", return_value={"id": "run-xyz", "status": "done"}),
-        patch("app.db.get_steps", return_value=[]),
-        patch("app.main.research.run_agent", side_effect=fake_agent),
+        patch("db.create_run", return_value="run-xyz"),
+        patch("db.get_run", return_value={"id": "run-xyz", "status": "done"}),
+        patch("db.get_steps", return_value=[]),
+        patch("main.research.run_agent", side_effect=fake_agent),
     ):
         response = client.post(
             "/runs/naive", json={"query": "how do solar panels work?"}
@@ -94,7 +94,7 @@ def test_short_queries_are_rejected_before_they_cost_anything(client):
 
 
 def test_unknown_run_is_a_404_not_a_500(client):
-    with patch("app.db.get_run", return_value=None):
+    with patch("db.get_run", return_value=None):
         assert client.get("/runs/does-not-exist").status_code == 404
 
 
@@ -106,7 +106,7 @@ async def test_a_malformed_run_id_never_reaches_the_database():
     500 — so the promise in the test above held only as long as `get_run` was
     mocked out. Against a real database it did not.
     """
-    from app import db
+    import db
 
     with patch.object(db._client, "get") as http_get:
         assert await db.get_run("does-not-exist") is None

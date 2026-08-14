@@ -23,14 +23,14 @@ WHERE MCP WOULD BE THE WRONG CHOICE
   would add indirection and buy nothing. Knowing when NOT to reach for MCP is
   the more useful half of the lesson.
 
-Run it standalone to poke at it with the MCP Inspector:
+Run it standalone to poke at it with the MCP Inspector (from app/):
 
-    uv run fastmcp dev app/tools/server.py
+    uv run fastmcp dev tools/server.py
 """
 
 from fastmcp import FastMCP
 
-from app.tools import wikipedia
+from tools import wikipedia
 
 mcp = FastMCP(
     name="research-tools",

@@ -17,7 +17,7 @@ from uuid import UUID
 
 import httpx
 
-from app import config
+import config
 
 # PostgREST exposes every table as a URL: /rest/v1/runs, /rest/v1/steps, ...
 REST_URL = f"{config.SUPABASE_URL}/rest/v1"

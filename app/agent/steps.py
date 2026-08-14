@@ -7,7 +7,8 @@ It is also your production debugger. When a run goes wrong on a server you
 cannot attach a breakpoint to, you can still read exactly how far it got.
 """
 
-from app import config, db
+import config
+import db
 
 
 class StepLogger:

@@ -1,4 +1,4 @@
-# http/ — poking the API by hand
+# app/http/ — poking the API by hand
 
 Ready-made HTTP requests for the deployed and local API, so you can drive the
 agent without writing a client or leaving the editor.
@@ -20,10 +20,10 @@ that appears above each block. JetBrains IDEs read the same `.http` format with
 their built-in HTTP client, though the `{{name.response...}}` chaining below is
 REST Client syntax.
 
-Start the API first:
+Start the API first, from `app/`:
 
 ```bash
-uv run fastapi dev app/main.py
+uv run fastapi dev main.py
 ```
 
 ## Pointing at your deployed service

@@ -8,7 +8,7 @@ still runs on the morning of a demo without touching a real service.
 
 import os
 
-# Must happen before anything imports app.config, which validates these at
+# Must happen before anything imports config, which validates these at
 # import time and would otherwise refuse to load.
 os.environ.setdefault("GEMINI_API_KEY", "test-key-not-real")
 os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
@@ -20,7 +20,7 @@ import pytest
 @pytest.fixture
 def steps_log():
     """A StepLogger that records to a list instead of the database."""
-    from app.agent.steps import StepLogger
+    from agent.steps import StepLogger
 
     class Recording(StepLogger):
         def __init__(self):
