@@ -300,7 +300,8 @@ tr:last-child td { border-bottom: 0; }
   background: #fff; border-radius: 12px; padding: 14px;
   align-self: center; width: min(260px, 100%);
 }
-.qr svg { width: 100%; height: auto; display: block; shape-rendering: crispEdges; }
+.qr svg,
+.qr img { width: 100%; height: auto; display: block; shape-rendering: crispEdges; }
 
 /* --- Callouts -------------------------------------------------------------- */
 
