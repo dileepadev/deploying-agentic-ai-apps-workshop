@@ -445,8 +445,8 @@
               enough that the naive version visibly breaks.
             </p>
             <p class="small mt-s">
-              Gemini · FastAPI on Render · Postgres on Supabase · client on
-              GitHub Pages. Total cost: $0.
+              Gemini · FastAPI on Render · Postgres on Supabase · React client
+              on GitHub Pages. Total cost: $0.
             </p>
           </div>
         </div>
@@ -663,8 +663,8 @@
           <div class="seq-row">
             <span class="seq-verb">CLIENT</span>
             <span class="seq-what"
-              >Static HTML / React / Flutter —
-              <strong>GitHub Pages</strong></span
+              >React + Vite —
+              <strong>GitHub Pages</strong> or <strong>Vercel</strong></span
             >
             <span class="seq-time">free</span>
           </div>
@@ -931,27 +931,34 @@
         <pre
           class="sm"
         ><span class="c">// 1. hand over the job — comes back immediately</span>
-<span class="k">const</span> { run_id } = <span class="k">await</span> (<span class="k">await</span> <span class="f">fetch</span>(<span class="s">`${API}/runs`</span>, {
-  method: <span class="s">"POST"</span>, headers: { <span class="s">"Content-Type"</span>: <span class="s">"application/json"</span> },
-  body: JSON.<span class="f">stringify</span>({ query })
-})).<span class="f">json</span>();
+<span class="k">const</span> runId = <span class="k">await</span> <span class="f">createRun</span>(baseUrl, query, signal);
 
-<span class="c">// 2. ask "done yet?" every 1.5 seconds</span>
-<span class="hl"><span class="k">const</span> id = <span class="f">setInterval</span>(<span class="k">async</span> () => {
-  <span class="k">const</span> { run, steps } = <span class="k">await</span> (<span class="k">await</span> <span class="f">fetch</span>(<span class="s">`${API}/runs/${run_id}`</span>)).<span class="f">json</span>();
-  <span class="f">renderSteps</span>(steps);                     <span class="c">// live progress UI</span>
-  <span class="k">if</span> (run.status !== <span class="s">"running"</span>) <span class="f">clearInterval</span>(id);
-}, <span class="n">1500</span>);</span></pre>
+<span class="c">// 2. ask "done yet?" until it settles</span>
+<span class="hl"><span class="k">for</span> (;;) {
+  <span class="k">await</span> <span class="f">sleep</span>(<span class="n">1500</span>, signal);
+  <span class="k">const</span> { run, steps } = <span class="k">await</span> <span class="f">readRun</span>(baseUrl, runId, signal);
+
+  <span class="f">setSteps</span>(steps);                        <span class="c">// live progress UI</span>
+  <span class="k">if</span> (run.status !== <span class="s">"running"</span>) <span class="k">return</span> <span class="f">finish</span>(run);
+}</span></pre>
         <p class="mt-s">
-          Fifteen lines. Identical in React, Vue, or Flutter — it's just
+          Ten lines. Identical in Vue or Flutter — it's just
           <code>fetch</code> in a loop.
         </p>
         <div class="notes">
           <ul>
             <li>
-              Stress <b>clearInterval</b>. Forgetting it means the browser polls
-              your free-tier server forever, which is a great way to discover
-              rate limits.
+              <b>Why <code>await sleep</code> and not <code>setInterval</code>.</b>
+              A timer fires whether or not the last request came back. Cold-start
+              your backend, first poll takes 40s, and you now have 25 requests in
+              flight for one run. Awaiting means the next poll starts when the
+              last one finished.
+            </li>
+            <li>
+              <b>Point at the <code>signal</code>.</b> That's what stops the loop
+              when the user leaves the screen. Forget it and the browser polls
+              your free-tier server until the tab closes — a great way to
+              discover rate limits.
             </li>
             <li>
               1.5s is a judgement call: fast enough to feel live, slow enough
@@ -1128,10 +1135,10 @@ API_KEY = <span class="s">"AIzaSy…"</span>  <span class="c">← in the code</s
               class="sm"
               style="border: 0; background: transparent; padding: 0"
             ><span class="c"># .env  (gitignored)</span>
-GEMINI_API_KEY=AIzaSy…
+LLM_API_KEY=AIzaSy…
 
 <span class="c"># .env.example  (committed)</span>
-GEMINI_API_KEY=</pre>
+LLM_API_KEY=</pre>
             <p class="small mt-s">
               In production the same values go in your host's environment panel.
             </p>

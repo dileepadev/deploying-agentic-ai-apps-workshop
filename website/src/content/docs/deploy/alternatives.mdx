@@ -36,7 +36,7 @@ Everything below is a variation on those three rows.
 | [Fly.io](https://fly.io) / [Koyeb](https://www.koyeb.com) / [Railway](https://railway.com) | long-lived | varies, often needs a card | Regions, persistent disks, growing past free |
 | [Vercel](#vercel) | request-scoped | yes, no card | **The frontend.** See the caveat |
 | [DBOS](#dbos) | durable | library is open source | Making the background work survive a restart |
-| [GitHub Pages](../../stack/#github-pages) | static | yes | `client/index.html`, and making CORS real |
+| [GitHub Pages](../../stack/#github-pages) | static | yes | The built `client/`, and making CORS real |
 
 <Aside type="tip" title="Deploy to two, on purpose">
 
@@ -100,6 +100,10 @@ as scratch space and keep state in Supabase. That's already how this project
 works, so nothing changes.
 
 ## Vercel
+
+This section is about running the **backend** on Vercel. Running the *client*
+there is a different question with a boring answer — it's a static bundle, it
+works fine, see [step 8](../../build/08-deploy/#deploy-the-client-too).
 
 Vercel runs FastAPI, and it will happily serve `/health`, `/docs`, and
 `/runs/naive`. The problem is the endpoint the whole workshop is about.

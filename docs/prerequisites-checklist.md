@@ -12,7 +12,7 @@ you do not have — this is the single highest-leverage thing you do in prep.
 2. **Supabase account** with one project already created (provisioning takes ~2 min)
 3. **Render account**, signed in with GitHub
 4. **GitHub account**
-5. **Laptop** with Python 3.11+, Git, and a code editor
+5. **Laptop** with Python 3.11+, Node.js 20+, Git, and a code editor
 
 > Each participant needs **their own** Gemini API key. Free-tier limits are counted
 > per key, so a shared key will rate-limit the entire room within minutes.
@@ -46,6 +46,7 @@ and signups eat the clock.
 
 ✅ 5. Laptop with:
    - Python 3.11 or newer  (check: python3 --version)
+   - Node.js 20 or newer   (check: node --version)   ← for the web client
    - A code editor (VS Code is fine)
    - Git installed
 
@@ -87,7 +88,8 @@ Sign in with GitHub so deployment is one click on the day.
 
 **4. GitHub account** — <https://github.com>
 
-**5. Your laptop**, with Python 3.11+ (`python3 --version`), Git, and a code editor.
+**5. Your laptop**, with Python 3.11+ (`python3 --version`), Node.js 20+
+(`node --version`, for the web client), Git, and a code editor.
 
 If you get stuck on any of these, message me beforehand rather than on the day.
 

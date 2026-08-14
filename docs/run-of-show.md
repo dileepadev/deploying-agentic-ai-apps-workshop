@@ -140,7 +140,9 @@ steps. Mention it, don't demo it.
 1. **pgvector live demo** → slides only; the code stays in the repo as a bonus
 2. **Durable execution / DBOS** → one slide as "the upgrade path", no demo
 3. **SSE** → one line: *"polling today, SSE when you outgrow it"*
-4. **Flutter/React client** → show the HTML one, note the calls are identical
+4. **Reading `useRun.ts` line by line** → show the running client instead, and say
+   the one sentence that matters: the fetch calls are identical in any framework,
+   the cancellation around them is what people get wrong
 
 **Never cut:** the accept-and-poll pattern, the live deploy, the step-logging UI, and
 the environment-security slide. Those four *are* the session.

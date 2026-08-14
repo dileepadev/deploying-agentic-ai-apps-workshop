@@ -63,8 +63,15 @@ uv run fastapi dev main.py
 
 Check <http://localhost:8000/health> — you want `{"ok": true, "database": true}`.
 
-Then open [`client/index.html`](client/index.html) in a browser, ask a question, and
-watch the steps appear.
+Then start the client, in a second terminal from the repo root:
+
+```bash
+cd client
+npm install
+npm run dev                     # http://localhost:5173
+```
+
+Open <http://localhost:5173>, ask a question, and watch the steps appear.
 
 **Now tick "Naive mode" and ask again.** Same agent, same answer, but a blank
 30-second wait. That's the bug this whole project exists to fix.
@@ -73,6 +80,7 @@ watch the steps appear.
 
 ```bash
 cd app && uv run --extra dev pytest                # 17 tests, no keys or network needed
+cd client && npm run build                         # type-check + build the client
 cd website && npm install && npm run dev           # the workshop website, locally
 cd app && uv run python -m agent.manual_loop "..."  # the agent, no framework, from the CLI
 cd app && uv run fastmcp dev tools/server.py        # poke the MCP tools in the Inspector
@@ -88,7 +96,10 @@ cd app && uv run fastmcp dev tools/server.py        # poke the MCP tools in the 
 │   ├── tools/            the tools, and the same tools over MCP
 │   ├── tests/            17 tests that need no API key
 │   └── http/             ready-made requests for driving the API by hand
-├── client/               the client — one HTML file, no build
+├── client/               the client — Vite + React + TypeScript
+│   └── src/
+│       ├── api.ts        the three HTTP calls — the whole backend contract
+│       └── useRun.ts     accept-and-poll as a hook, with cancellation
 ├── database/schema.sql   three tables
 ├── deploy/               Render blueprint
 ├── slides/               the deck
@@ -105,7 +116,7 @@ cd app && uv run fastmcp dev tools/server.py        # poke the MCP tools in the 
 | Tools | FastMCP, mounted at `/mcp` | open source |
 | Backend | FastAPI on Render | yes |
 | Database | Supabase Postgres + pgvector | yes |
-| Frontend | Static HTML on GitHub Pages | yes |
+| Frontend | Vite + React on GitHub Pages or Vercel | yes |
 
 Total cost: **nothing**, and no credit card at any point.
 
@@ -140,8 +151,9 @@ npm run dev          # http://localhost:4321
 ```
 
 The deck and the demo client are **single-sourced** from `slides/` and `client/`;
-`website/scripts/sync-assets.mjs` pulls them into the build, so there is never a
-second copy to keep in sync. Edit `slides/index.html` exactly as before.
+`website/scripts/sync-assets.mjs` pulls them into the build — running the client's
+own Vite build along the way — so there is never a second copy to keep in sync.
+Edit `slides/index.html` and `client/src/` in place.
 
 Published to GitHub Pages by `.github/workflows/deploy-pages.yml`:
 

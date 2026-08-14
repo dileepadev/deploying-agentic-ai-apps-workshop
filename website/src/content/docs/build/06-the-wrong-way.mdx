@@ -56,9 +56,14 @@ Start the server, from `app/`:
 uv run fastapi dev main.py
 ```
 
-Open `client/index.html` in your browser — double-clicking the file works. Leave
-the backend URL as `http://localhost:8000`, **tick the "Naive mode" checkbox**,
-and ask a question.
+Then start the client, in a second terminal, from `client/`:
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:5173`. Leave the backend URL as `http://localhost:8000`,
+**tick the "Naive mode" checkbox**, and ask a question.
 
 Now watch. And keep watching.
 
@@ -157,9 +162,19 @@ network tab: it should be `POST /runs/naive`.
 <summary>The browser shows a CORS error instead of hanging</summary>
 
 
-You're opening the file over `file://` and the browser is being strict.
-Serve it instead: `python3 -m http.server 8080` from the `web/` folder, then
-open [http://localhost:8080](http://localhost:8080).
+Check the **Backend URL** field actually matches where your server is running —
+a typo'd port produces a CORS error rather than a connection error, which sends
+people hunting in the wrong place. Locally, `ALLOWED_ORIGINS` defaults to `*`, so
+there is nothing to configure until you deploy.
+
+</details>
+
+<details>
+<summary><code>npm run dev</code> says the port is in use</summary>
+
+
+Vite picks the next free port and prints it — read the URL it actually gives you
+rather than typing `5173` from memory.
 
 </details>
 

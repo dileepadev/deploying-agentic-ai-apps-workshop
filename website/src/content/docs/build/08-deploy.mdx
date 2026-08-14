@@ -2,7 +2,7 @@
 title: Step 8 · Deploy
 ---
 
-import { Aside } from "@astrojs/starlight/components";
+import { Aside, TabItem, Tabs } from "@astrojs/starlight/components";
 
 <div class="stepbar" data-step="8" data-total="8">
   <span class="stepbar-label">Step 8 of 8</span>
@@ -91,16 +91,51 @@ This is why that endpoint exists.
 
 ## Point the client at it
 
-Open `client/index.html`, paste your Render URL into **Backend URL**, and ask a
-question.
+From `client/`, run `npm run dev`, paste your Render URL into **Backend URL**, and
+ask a question. The field is saved in your browser, so you can flip between your
+local backend and the deployed one without touching any config.
 
 If you get **"Failed to fetch"**, that's CORS — and now it's real, because your
 page and your API are genuinely different origins. Set `ALLOWED_ORIGINS` on
 Render to your frontend's origin (no trailing slash) and redeploy:
 
 ```text
-ALLOWED_ORIGINS=https://yourname.github.io,http://localhost:8080
+ALLOWED_ORIGINS=https://your-client.vercel.app,http://localhost:5173
 ```
+
+## Deploy the client too
+
+The client builds to a folder of static files, so any static host will do.
+
+<Tabs>
+<TabItem label="Vercel">
+
+`client/vercel.json` is already configured. Import the repo at
+[vercel.com/new](https://vercel.com/new), then:
+
+1. **Root Directory** → `client`
+2. **Environment Variables** → `VITE_API_URL` = your Render URL
+3. Deploy
+
+</TabItem>
+<TabItem label="GitHub Pages">
+
+Already handled — the workshop site's build compiles the client and publishes it
+at `/demo/`. Push to `main` and the Actions workflow does the rest.
+
+</TabItem>
+</Tabs>
+
+<Aside type="caution" title="`VITE_API_URL` is not a secret">
+
+Vite inlines every `VITE_*` variable into the JavaScript bundle at build time.
+Anyone can read them with view-source. A backend URL is fine there. A Gemini or
+Supabase key is not — those stay in `app/.env`, on the server, forever.
+
+</Aside>
+
+Then add your new frontend origin to `ALLOWED_ORIGINS` on Render, because you've
+just created a third one.
 
 ## Connect your MCP server to Claude
 

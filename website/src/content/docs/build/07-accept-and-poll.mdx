@@ -1,6 +1,9 @@
 ---
 title: Step 7 · Accept and poll
 ---
+
+import { Aside } from "@astrojs/starlight/components";
+
 <div class="stepbar" data-step="7" data-total="8">
   <span class="stepbar-label">Step 7 of 8</span>
   <span class="stepbar-track"><span class="stepbar-fill" style="width:87.5%"></span></span>
@@ -55,30 +58,44 @@ async def read_run(run_id: str):
 
 ## The client side
 
-```javascript title="client/index.html"
-// 1. Ask. Comes back immediately with an id.
-const response = await fetch(`${baseUrl()}/runs`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ query }),
-});
-const { run_id } = await response.json();
+```tsx title="client/src/useRun.ts"
+// 1. Hand over the job. Comes back immediately with an id.
+const runId = await createRun(baseUrl, query, signal);
 
-// 2. Poll. Every 1.5s, until it's done.
-pollId = setInterval(async () => {
-  const poll = await fetch(`${baseUrl()}/runs/${run_id}`);
-  const { run, steps } = await poll.json();
+// 2. Ask "done yet?" until it settles.
+for (;;) {
+  await sleep(POLL_MS, signal);
+  const { run, steps } = await readRun(baseUrl, runId, signal);
 
-  renderSteps(steps);                       // ← the live progress
+  setStatus(run.status);
+  setSteps(steps);                          // ← the live progress
+
   if (run.status === "done" || run.status === "error") {
-    clearInterval(pollId);
-    renderResult(run);
+    finish(run);
+    return;
   }
-}, 1500);
+}
 ```
 
 Twenty lines. It works through every proxy, survives a phone switching networks,
 and you can debug it with `curl`.
+
+Two details in there are worth more than they look:
+
+- **`await sleep(...)` inside the loop, not `setInterval`.** A timer fires on
+  schedule whether or not the last request came back. Cold-start your backend and
+  the first poll takes 40 seconds — with `setInterval` you've now got 25 requests
+  in flight at once, all for the same run. Awaiting means the next poll starts
+  when the last one finished.
+- **The `signal`.** Every call takes an `AbortSignal`, so the loop stops when the
+  user asks a second question or leaves the screen. Skip it and you get a poll
+  loop that outlives the component and keeps calling your API until the tab
+  closes — which on a free tier is how you meet your rate limit.
+
+<Aside type="caution" title="This is the part that doesn't look broken">
+Both mistakes above work perfectly on localhost against a warm server. They only
+show up deployed, on a cold container, on someone else's network.
+</Aside>
 
 ## The bonus nobody expects
 
@@ -107,8 +124,14 @@ From `app/`:
 uv run fastapi dev main.py
 ```
 
-Open `client/index.html`, **untick Naive mode**, and ask the same question as step
-6.
+Then start the client, from `client/`:
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:5173`, **untick Naive mode**, and ask the same question as
+step 6.
 
 Then run both back to back with the checkbox to feel the difference. That toggle
 is the most persuasive thing in this whole project.

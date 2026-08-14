@@ -18,6 +18,7 @@ otherwise-better options, and it's the right constraint for learning.
 | Model | [Gemini](#gemini) | A no-card free tier — see [the alternatives](llm-providers/) |
 | Database | [Supabase](#supabase) | Free Postgres with pgvector built in |
 | Backend host | [Render](#render) | Free web services, deploys from GitHub |
+| Frontend | [Vite + React](#vite--react) | The frontend most people will port this into |
 | Frontend host | [GitHub Pages](#github-pages) | Free, and makes CORS real |
 
 ---
@@ -194,6 +195,24 @@ anything CPU-heavy.
 
 See also [FastAPI Cloud](../deploy/fastapi-cloud/), which we cover as a second
 deployment path.
+
+---
+
+## Vite + React
+
+**What it is.** A build tool and a UI library — the default way to start a
+frontend today.
+
+**Why we chose it.** The three HTTP calls in this workshop are the same in any
+framework. What isn't the same is the code *around* them: cancelling a poll loop
+when a component unmounts, not stacking requests when the server is slow. Writing
+the client in a real framework is the only way to show that honestly, and React is
+the one most people will be porting this into.
+
+**Where it is.** `client/` — `src/api.ts` is the backend contract, `src/useRun.ts`
+is the pattern.
+
+**What it costs.** Nothing, open source.
 
 ---
 

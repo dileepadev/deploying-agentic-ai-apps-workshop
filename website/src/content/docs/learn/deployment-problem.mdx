@@ -157,7 +157,9 @@ The upgrade path, in order of effort:
    Now a web restart doesn't kill jobs.
 3. **Durable execution** ([DBOS](https://www.dbos.dev/), Temporal, Prefect).
    Each step is checkpointed to Postgres, so a crash *resumes* rather than
-   restarts. Pydantic AI supports all three directly.
+   restarts. Pydantic AI supports all three directly, and
+   [Other hosts · DBOS](../../deploy/alternatives/#dbos) shows what the swap
+   looks like in this codebase.
 
 The architecture doesn't change for any of these. You're replacing one line of
 "how the background work is scheduled". That's what makes the pattern worth
@@ -192,7 +194,7 @@ That toggle is the most persuasive thing in the entire workshop, and it's why
 <div class="inrepo">
 <code>app/main.py</code> — <code>create_run()</code> and
 <code>create_run_naive()</code>, about 40 lines apart.<br />
-<code>client/index.html</code> — the Naive mode checkbox and the polling loop.<br />
+<code>client/src/useRun.ts</code> — the Naive mode branch and the polling loop.<br />
 <code>app/tests/test_api.py</code> — a test that fails if anyone moves the agent
 back inside the request.
 </div>

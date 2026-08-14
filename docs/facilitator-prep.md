@@ -33,7 +33,7 @@ that may not exist yet.
 | 0:15–0:30 | Run `database/schema.sql` in the Supabase SQL editor. Confirm `runs` and `steps` exist in the table editor. |
 | 0:30–1:00 | `cd app && cp .env.example .env`, fill it in, run `uv run fastapi dev main.py`. Hit `/health`. |
 | 1:00–1:45 | Get **one full agent run** working end to end locally. Watch rows appear in the Supabase `steps` table. |
-| 1:45–2:15 | Open `client/index.html`, point it at `http://localhost:8000`, confirm steps render live. |
+| 1:45–2:15 | `cd client && npm install && npm run dev`. Point it at `http://localhost:8000`, confirm steps render live. |
 | 2:15–2:45 | Try the naive endpoint (`Naive mode` toggle in the UI). Feel the hang. This is your Timeout Trap material. |
 | 2:45–3:00 | Push to GitHub. Verify `.env` is **not** in the repo. |
 
@@ -46,7 +46,7 @@ that may not exist yet.
 - [ ] Create the Render web service from the repo (`deploy/render.yaml` has the settings)
 - [ ] Set env vars in the Render dashboard — **not** in the repo
 - [ ] Hit `/health` on the live URL
-- [ ] Point `client/index.html` at the Render URL — this is your real CORS test
+- [ ] Point the client at the Render URL — this is your real CORS test
 - [ ] **Time a cold start with a stopwatch.** Let it idle 20 min, then hit it. Write
       the number down — it goes on a slide.
 - [ ] **Time a full agent run.** That number goes on a slide too.

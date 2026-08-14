@@ -8,7 +8,7 @@ import Mermaid from "../../../components/Mermaid.astro";
 
 <Mermaid chart={`flowchart TB
     subgraph browser["Browser · GitHub Pages"]
-        UI["client/index.html<br />polls every 1.5s"]
+        UI["client/ · React<br />polls every 1.5s"]
     end
 
     subgraph render["FastAPI · Render free tier"]
@@ -127,7 +127,10 @@ deploying-agentic-ai-apps-workshop/
 │   │   └── server.py        the same tools, over MCP
 │   ├── tests/               12 tests, no network or keys needed
 │   └── http/                ready-made requests for driving the API by hand
-├── client/index.html        the client — vanilla JS, no build
+├── client/                  the client — Vite + React + TypeScript
+│   └── src/
+│       ├── api.ts           the three HTTP calls
+│       └── useRun.ts        accept-and-poll, with cancellation
 ├── database/schema.sql      three tables
 ├── deploy/render.yaml       infrastructure as a file
 ├── slides/                  the presentation deck
@@ -147,7 +150,10 @@ writes rows; the client reads rows. It's simpler than it sounds and it means
 every run leaves a complete, inspectable trace you can read in the Supabase
 table editor.
 
-**The frontend is a single HTML file.** No build step, no framework, no
-`node_modules`. You can open it by double-clicking it. The API calls are
-identical from React, Flutter, or curl — so nothing here is thrown away when you
-rebuild the UI properly.
+**The frontend is a real app, not a demo page.** Vite + React + TypeScript, with
+its own `package.json`. A hand-written HTML file would be shorter, but it would
+quietly skip the part that actually breaks: cancelling the poll loop when the
+component unmounts, and not stacking requests when a cold server is slow to
+answer. Those live in `client/src/useRun.ts`. The three fetch calls next door in
+`api.ts` are identical from Vue, Flutter, or curl — it's the code around them
+that's worth reading.
