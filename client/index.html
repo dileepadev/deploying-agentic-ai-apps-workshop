@@ -7,13 +7,14 @@
     <title>Research Agent — workshop demo</title>
 
     <!--
-      The whole client is three HTTP calls:
-        1. POST /runs          -> get a run_id back immediately
+      The whole client is a handful of HTTP calls:
+        1. POST /runs          -> get a run_id and a thread_id back immediately
         2. GET  /runs/{id}     -> every 1.5s, until status is done or error
         3. render steps[]      -> that's the "Agent is thinking..." UI
+        4. send the thread_id back with the next question -> a conversation
 
       They live in src/api.ts, and they're identical in Vue, Svelte or Flutter.
-      What changes between frameworks is src/useRun.ts — the cleanup.
+      What changes between frameworks is src/useConversation.ts — the cleanup.
     -->
   </head>
 

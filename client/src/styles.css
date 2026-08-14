@@ -106,6 +106,51 @@ button:disabled {
   cursor: not-allowed;
 }
 
+button.secondary {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* --- the connection strip --------------------------------------------------
+   Which model is on the other end of that URL, and can it reach anything. */
+
+.conn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.conn strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--muted);
+}
+
+.dot.up {
+  background: var(--accent);
+}
+
+.dot.down {
+  background: var(--err);
+}
+
+.dot.waiting {
+  background: var(--warn);
+}
+
 .hint {
   font-size: 0.8rem;
   color: var(--muted);
@@ -127,6 +172,33 @@ button:disabled {
   accent-color: var(--warn);
   width: 16px;
   height: 16px;
+}
+
+/* --- the conversation ------------------------------------------------------ */
+
+.conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.turn + .turn {
+  border-top: 1px solid var(--line);
+  padding-top: 1.4rem;
+}
+
+.question {
+  margin: 0 0 0.9rem;
+  padding-left: 0.85rem;
+  border-left: 2px solid var(--accent);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.answer .meta {
+  margin: 0.9rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .statusbar {

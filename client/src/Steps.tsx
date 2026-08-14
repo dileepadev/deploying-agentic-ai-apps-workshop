@@ -1,5 +1,5 @@
 import type { Step } from "./api";
-import type { ClientStatus } from "./useRun";
+import type { ClientStatus } from "./useConversation";
 
 /**
  * The agent's thought process, one line per row in the `steps` table.

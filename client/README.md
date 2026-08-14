@@ -2,8 +2,9 @@
 
 The frontend for the workshop backend in [`../app/`](../app/). Vite + React + TypeScript.
 
-It does three things: asks the agent a question, shows what the agent is doing while
-it works, and shows the answer. That's it.
+It does four things: asks the agent a question, shows what the agent is doing while
+it works, shows the answer, and lets you ask a follow-up that the agent remembers.
+That's it.
 
 ## Run it
 
@@ -23,13 +24,36 @@ localhost during the build and at your Render URL after you deploy.
 
 | File | What it's for |
 | --- | --- |
-| [`src/api.ts`](src/api.ts) | The three HTTP calls. The whole backend contract. |
-| [`src/useRun.ts`](src/useRun.ts) | Accept-and-poll as a hook — cancellation, cleanup, no overlapping polls. |
+| [`src/api.ts`](src/api.ts) | The five HTTP calls. The whole backend contract. |
+| [`src/useConversation.ts`](src/useConversation.ts) | Accept-and-poll as a hook — cancellation, cleanup, no overlapping polls, and the thread id. |
+| [`src/useHealth.ts`](src/useHealth.ts) | Which provider and model the backend is running. |
 | [`src/App.tsx`](src/App.tsx) | The UI, including the Naive mode toggle. |
+| [`src/Turn.tsx`](src/Turn.tsx) | One exchange: question, steps, answer, and which model produced it. |
 | [`src/Steps.tsx`](src/Steps.tsx) | The live "Agent is searching…" list. |
 
-If you're here to copy something into your own project, copy `useRun.ts`. The fetch
-calls are the easy part; the cancellation around them is the part that bites.
+If you're here to copy something into your own project, copy `useConversation.ts`.
+The fetch calls are the easy part; the cancellation around them is the part that bites.
+
+## Conversations
+
+Ask a question, then ask "why is that?" — the agent knows what "that" means.
+
+The client's entire share of that is two lines: keep the `thread_id` the server
+hands back, send it with the next question. The conversation itself never lives in
+the browser. It's stored in Postgres and replayed to the model server-side, which is
+why **reloading the page doesn't lose it** — the client asks
+`GET /threads/{id}` and draws what the database says.
+
+Threads are capped (`MAX_THREAD_TURNS`, default 10) because every turn re-sends the
+whole history. Hit the cap and you get a 409 telling you to start a new one — which
+the **New conversation** button does.
+
+## The connection strip
+
+Under the backend URL, fed by `GET /health`: which provider and model are answering,
+whether the database is reachable, and whether web search is switched on. Each
+finished answer repeats the provider and model that produced *it*, stamped per run —
+so an answer still tells the truth about itself after you've switched keys mid-session.
 
 ## Naive mode
 
