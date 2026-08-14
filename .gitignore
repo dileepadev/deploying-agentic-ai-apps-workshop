@@ -25,6 +25,11 @@ dist/
 _site/
 website/_site/
 
+# Deploy CLIs — project-linking state, written on your machine, not shared.
+# `fastapi deploy` writes .fastapicloud/; the Vercel CLI writes .vercel/.
+.fastapicloud/
+.vercel/
+
 # Editors / OS
 .vscode/
 .idea/

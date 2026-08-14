@@ -1,0 +1,179 @@
+---
+title: Naming GitHub deployments
+---
+
+import { Aside, Steps, TabItem, Tabs } from "@astrojs/starlight/components";
+
+Deploy the same repo to two providers and GitHub's **Deployments** list stops
+being useful. This page is how this repository fixed that, and it's a small
+lesson in who actually owns a deployment record.
+
+<Aside type="note" title="Optional, and not part of the workshop">
+
+Nothing here is needed to follow the tutorial. If you're deploying your own
+fork through the Render, FastAPI Cloud and Vercel dashboards, those pages are
+complete on their own — every push still deploys, exactly as they describe.
+
+Come here when you have **two providers on one repo** and can't tell their
+deployments apart.
+
+</Aside>
+
+## The problem
+
+Both providers write to GitHub on every push, and both pick their own name:
+
+| What GitHub showed | Who wrote it |
+|---|---|
+| `Production` | `vercel[bot]` — the client |
+| `Production – deploying-agentic-ai-apps-workshop` | `fastapi-cloud[bot]` — the agent |
+
+Neither name says which host it is. The one that names the repo is the *backend*
+— which is exactly backwards from what you'd guess, since the repo is mostly the
+frontend and the docs.
+
+Two things make this harder to fix than it looks:
+
+- **The name comes from the provider, not from your repo.** There's no setting
+  in `vercel.json`, no file the FastAPI Cloud app reads. The integration decides.
+- **GitHub environments can't be renamed.** Once `Production` exists, it exists
+  under that name forever. You create a new one and retire the old.
+
+So there is no rename to perform. The only lever is *who creates the deployment*.
+
+## The fix: create the deployment yourself
+
+A GitHub Actions job with an `environment:` block creates a deployment record
+under whatever name you give it. Move the deploy into a workflow and the label
+becomes yours:
+
+```yaml title=".github/workflows/deploy-vercel.yml"
+jobs:
+  deploy:
+    environment:
+      name: "Production – Vercel"
+      url: ${{ steps.deploy.outputs.url }}
+```
+
+That's the entire mechanism. Two workflows now do the deploying:
+
+| Workflow | Deploys | Shows up as |
+|---|---|---|
+| [`deploy-vercel.yml`](https://github.com/dileepadev/deploying-agentic-ai-apps-workshop/blob/main/.github/workflows/deploy-vercel.yml) | `client/` to Vercel | **Production – Vercel** |
+| [`deploy-fastapi-cloud.yml`](https://github.com/dileepadev/deploying-agentic-ai-apps-workshop/blob/main/.github/workflows/deploy-fastapi-cloud.yml) | `app/` to FastAPI Cloud | **Production – FastAPI** |
+
+Both use the providers' own CLIs, so the build is the same build — only the
+trigger moved.
+
+<Aside type="caution" title="Turn the integration off, or you get both">
+
+The workflows don't replace the native integrations, they race them. Until you
+disconnect the repo on the provider's side, every push deploys **twice** and
+writes **two** deployment records under two different names — which is the
+problem you started with, plus a wasted build.
+
+</Aside>
+
+## Setting it up
+
+<Steps>
+
+1. **Create the environments.** Settings → Environments → New environment,
+   named exactly `Production – Vercel` and `Production – FastAPI`.
+
+   The dash is an en dash (`–`, U+2013), not a hyphen. It has to match the
+   workflow byte for byte, or Actions creates a *second* environment with the
+   name you typed.
+
+2. **Add the repository secrets.** Settings → Secrets and variables → Actions:
+
+   | Secret | Where it comes from |
+   |---|---|
+   | `VERCEL_TOKEN` | Vercel → Account Settings → Tokens |
+   | `VERCEL_ORG_ID` | Vercel → Team Settings → General (a `team_…` id) |
+   | `VERCEL_PROJECT_ID` | Vercel → Project → Settings → General (a `prj_…` id) |
+   | `FASTAPI_CLOUD_TOKEN` | FastAPI Cloud → App → Deploy Tokens → Create Token |
+   | `FASTAPI_CLOUD_APP_ID` | the app's UUID, from its dashboard URL |
+
+   The FastAPI Cloud CLI will do its half for you, including creating the token
+   and setting both secrets through `gh`:
+
+   ```bash
+   cd app
+   uv run fastapi cloud setup-ci --secrets-only
+   ```
+
+   `--secrets-only` matters: without it the command also writes its own
+   `.github/workflows/deploy.yml`, which deploys under *its* name and puts you
+   back where you started.
+
+3. **Disconnect the native integrations.**
+
+   <Tabs>
+   <TabItem label="Vercel">
+
+   Project → **Settings** → **Git** → **Disconnect** from the connected
+   repository.
+
+   Keeping the project itself is the point — the CLI still deploys into it,
+   with the same domains and the same environment variables. Only the
+   push-to-deploy trigger goes away.
+
+   </TabItem>
+   <TabItem label="FastAPI Cloud">
+
+   App → **Settings** → **Source Repository** → **Disconnect**.
+
+   Same idea: the app, its URL and its environment variables all stay. The CLI
+   deploys to it by app ID.
+
+   </TabItem>
+   </Tabs>
+
+4. **Push, and check the Deployments tab.** Two entries, named for their hosts,
+   each linking to the live URL.
+
+</Steps>
+
+## What you give up
+
+Worth being honest about, because it isn't nothing:
+
+- **Vercel preview deployments and PR comments.** Those come from the Git
+  integration. Disconnect it and pull requests no longer get their own URL.
+  For a repo where the client is a static demo, that's a fair trade; for a
+  product you're reviewing designs on, it isn't.
+- **A secret to rotate.** Deploy tokens expire — FastAPI Cloud's default to
+  365 days from `setup-ci`, and a dead token surfaces as a failed workflow
+  rather than a failed deploy.
+- **One more thing between you and production.** The integration had no moving
+  parts. This has a runner, a CLI version, and a token.
+
+FastAPI Cloud doesn't do PR previews at all, so on that side you lose nothing.
+
+<Aside type="tip" title="The old environments stay until you delete them">
+
+`Production` and `Production – deploying-agentic-ai-apps-workshop` are still
+listed, holding the deployment history from before the switch. Deleting an
+environment **deletes that history with it**, so it's worth keeping until the
+new ones have enough runs to be useful.
+
+</Aside>
+
+## Why this is a deployment lesson, not a cosmetic one
+
+A GitHub deployment record is just an API object, and *whoever calls the API
+owns the label*. The integrations feel authoritative because they're automatic,
+but they're only the first thing that happened to write there.
+
+That's the same shape as the rest of this workshop: the platform's default
+behaviour is a choice someone made, not a law. Cold starts, scale-to-zero,
+request-scoped CPU — and the name on a deployment. Once you know which
+component decides, you know where to go and change it.
+
+## See also
+
+- [Deploy the client](../client/) — the Vercel dashboard route, still the
+  simplest way in
+- [FastAPI Cloud](../fastapi-cloud/) — the agent host, dashboard and CLI
+- [Troubleshooting](../troubleshooting/)
