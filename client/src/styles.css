@@ -1,0 +1,254 @@
+/* Palette shared with the workshop site and the slide deck, so all three read
+   as one product. Source of truth: website/src/styles/tokens.css */
+:root {
+  color-scheme: dark;
+  --bg: #080c11;
+  --panel: #101822;
+  --panel-2: #16212c;
+  --line: #24333f;
+  --ink: #eef4fb;
+  --muted: #8ea3b6;
+  --accent: #7cd4a4;
+  --warn: #f3bd6d;
+  --err: #f28b8b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 2rem 1.25rem;
+  background: radial-gradient(1000px 600px at 15% -10%, #16202c, var(--bg));
+  color: var(--ink);
+  font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+}
+
+main {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  margin: 0 0 0.25rem;
+  letter-spacing: -0.02em;
+}
+
+.sub {
+  color: var(--muted);
+  margin: 0 0 1.75rem;
+  font-size: 0.95rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
+input[type="text"],
+input[type="url"] {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.row > div {
+  flex: 1 1 240px;
+}
+
+button {
+  padding: 0.7rem 1.3rem;
+  border-radius: 9px;
+  border: 0;
+  background: var(--accent);
+  color: #06231a;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+}
+
+.naive {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  font-size: 0.85rem;
+  color: var(--warn);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.naive input {
+  accent-color: var(--warn);
+  width: 16px;
+  height: 16px;
+}
+
+.statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.8rem;
+}
+
+.pill {
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+}
+
+.pill.running {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.pill.done {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.pill.error {
+  color: var(--err);
+  border-color: var(--err);
+}
+
+ol.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+ol.steps li {
+  padding: 0.65rem 0 0.65rem 1.6rem;
+  position: relative;
+  border-bottom: 1px dashed var(--line);
+}
+
+ol.steps li:last-child {
+  border-bottom: 0;
+}
+
+ol.steps li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0.65rem;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+ol.steps li.active::before {
+  content: "◐";
+  color: var(--warn);
+  animation: spin 1.1s linear infinite;
+}
+
+ol.steps li.failed::before {
+  content: "✕";
+  color: var(--err);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ol.steps li.active::before {
+    animation: none;
+  }
+}
+
+.step-label {
+  font-weight: 600;
+}
+
+.step-detail {
+  color: var(--muted);
+  font-size: 0.87rem;
+}
+
+.result {
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+
+.error-box {
+  border: 1px solid var(--err);
+  color: var(--err);
+  border-radius: 9px;
+  padding: 0.8rem 1rem;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+footer {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+  margin-top: 2rem;
+}
+
+footer a {
+  color: var(--muted);
+}
+
+code {
+  background: var(--panel-2);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
