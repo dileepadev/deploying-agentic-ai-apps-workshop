@@ -17,7 +17,7 @@ the blanks. Ask it something that needs a follow-up search and it can't do one,
 because we never gave it the chance — the shape of the work was decided by us,
 in advance.
 
-`research.py` hands the model the same two tools and lets it decide. That is the
+`research.py` hands the model the same tools and lets it decide. That is the
 line between "a script that calls an LLM" and "an agent": who owns the control
 flow. Everything else — the deployment problem this whole workshop is about — is
 identical either way, which is exactly why the deployment lesson outlives your

@@ -42,6 +42,12 @@ services:
       # keys, SUPABASE_SERVICE_ROLE_KEY still works instead.
       - key: SUPABASE_SECRET_KEY
         sync: false
+      # Optional. Leave it empty in the dashboard and the agent researches with
+      # Wikipedia alone; fill it in and it can also search the live web, which
+      # is the difference between answering "how do solar panels work" and
+      # "what was announced this week". /health reports which you've got.
+      - key: TAVILY_API_KEY
+        sync: false
 
       # Not secret — safe to keep in the file.
       #
@@ -58,6 +64,10 @@ services:
         value: google
       - key: MAX_AGENT_STEPS
         value: "12"
+      # The other ceiling: how many questions one conversation may hold. Every
+      # turn re-sends the whole history, so threads can't grow forever.
+      - key: MAX_THREAD_TURNS
+        value: "10"
       # Replace with your real GitHub Pages origin before you go public.
       - key: ALLOWED_ORIGINS
         value: "*"

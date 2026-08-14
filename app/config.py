@@ -86,6 +86,27 @@ if LLM_PROVIDER == "openai-compatible" and not LLM_BASE_URL:
         "Example (Groq): LLM_BASE_URL=https://api.groq.com/openai/v1"
     )
 
+# --- Web search (optional) ---------------------------------------------------
+# Wikipedia is free, reliable and needs no key, which is why the workshop builds
+# on it. It is also written in the past tense: ask about this week and it has
+# nothing, and the model answers from training data that ended months ago.
+#
+# Tavily is a search API built for exactly this gap. We reach it over MCP — we
+# don't run that server, they do — which is the mirror image of the MCP server
+# this app *hosts* at /mcp. Same protocol, opposite end of it.
+#
+# OPTIONAL ON PURPOSE. Leave it blank and the agent runs on Wikipedia alone,
+# exactly as before. Nobody should be stuck at a signup form in minute ten of a
+# 90-minute workshop. Free key, no card: https://app.tavily.com
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "").strip()
+
+# Every Tavily quickstart writes the key into the URL as `?tavilyApiKey=...`,
+# and their server does accept it that way. We send it as a Bearer header
+# instead, because a URL is the most-logged string in any stack — proxies,
+# tracebacks, and error reporters all record it, and a key in a URL is a key in
+# all three. Headers are not logged by default anywhere in that chain.
+TAVILY_MCP_URL = "https://mcp.tavily.com/mcp"
+
 SUPABASE_URL = _required("SUPABASE_URL").rstrip("/")
 
 # Supabase replaced the old `anon` / `service_role` JWT keys with publishable
@@ -110,6 +131,16 @@ ALLOWED_ORIGINS = [
 ]
 
 MAX_AGENT_STEPS = int(os.getenv("MAX_AGENT_STEPS", "12"))
+
+# Hard ceiling on turns in one conversation, and a different guardrail from the
+# one above. MAX_AGENT_STEPS stops a single run looping; this stops a thread
+# growing forever.
+#
+# Every turn re-sends the whole conversation, so a thread's cost per question
+# climbs with its length — and eventually it stops fitting in the context window
+# at all. Capping it turns "the agent mysteriously started failing" into a clear
+# "start a new conversation", which is the honest answer anyway.
+MAX_THREAD_TURNS = int(os.getenv("MAX_THREAD_TURNS", "10"))
 
 # Wikipedia asks every client to identify itself. Be a good citizen.
 USER_AGENT = (

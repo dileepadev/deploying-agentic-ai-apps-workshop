@@ -11,16 +11,50 @@
 -- This is the "job". The API creates it instantly and returns its id, then the
 -- agent fills it in from a background task. The client polls this row until
 -- status is 'done' or 'error'.
+--
+-- A run also belongs to a THREAD. One question is one run; a conversation is
+-- several runs sharing a thread_id. That is the whole of "the agent remembers
+-- what we were talking about" — see the messages column below.
 
 create table if not exists runs (
   id          uuid primary key default gen_random_uuid(),
+  thread_id   uuid not null default gen_random_uuid(),  -- the conversation
   query       text not null,
   status      text not null default 'queued',   -- queued | running | done | error
   result      text,                             -- the final answer
   error       text,                             -- why it failed, if it failed
+  messages    jsonb,                            -- conversation so far (see below)
+  provider    text,                             -- who generated it: google, ...
+  model       text,                             -- ...and which model
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+
+-- If you created this table before conversations existed, `create table if not
+-- exists` above did nothing — it doesn't add columns to a table that's already
+-- there. These do, and they're safe to run on a fresh database too.
+alter table runs add column if not exists thread_id uuid not null default gen_random_uuid();
+alter table runs add column if not exists messages  jsonb;
+alter table runs add column if not exists provider  text;
+alter table runs add column if not exists model     text;
+
+-- WHAT GOES IN `messages`
+--
+-- The full conversation as the *model* sees it: every question, every tool call,
+-- every tool result, every answer. Pydantic AI hands us this as JSON and takes
+-- it back the same way, so a follow-up question starts where the last one
+-- stopped. Without it, every question would arrive at a model with amnesia.
+--
+-- We store it on the run rather than in its own table because it is a snapshot,
+-- not a log — each run saves the whole conversation up to and including itself,
+-- so reading the newest run in a thread is the only query we ever need.
+--
+-- `steps` (below) is the same story told for humans. This one is for the model.
+
+-- "Give me the latest state of this conversation" and "give me every run in this
+-- thread, in order" are the only two thread queries the app makes. Both are this
+-- index.
+create index if not exists runs_thread_created_idx on runs (thread_id, created_at desc);
 
 
 -- -----------------------------------------------------------------------------

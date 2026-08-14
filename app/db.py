@@ -63,19 +63,28 @@ def _check(response: httpx.Response) -> Any:
 # -----------------------------------------------------------------------------
 
 
-async def create_run(query: str) -> str:
-    """Insert a queued run and return its id. This is the fast part —
-    it's the only database work that happens inside the user's request."""
+async def create_run(query: str, thread_id: str | None = None) -> dict:
+    """Insert a queued run and return it. This is the fast part —
+    it's the only database work that happens inside the user's request.
+
+    No `thread_id` means "start a new conversation", and we leave the column out
+    entirely rather than generating a uuid here — the table's default does it,
+    which keeps one rule in one place.
+    """
+    row: dict[str, Any] = {"query": query, "status": "queued"}
+    if thread_id:
+        row["thread_id"] = thread_id
+
     rows = _check(
         await _client.post(
             "/runs",
-            json={"query": query, "status": "queued"},
+            json=row,
             # Ask PostgREST to return the row it just created, so we get the id
-            # without a second round trip.
+            # and the thread id without a second round trip.
             headers={"Prefer": "return=representation"},
         )
     )
-    return rows[0]["id"]
+    return rows[0]
 
 
 async def update_run(run_id: str, **fields: Any) -> None:
@@ -92,20 +101,107 @@ async def update_run(run_id: str, **fields: Any) -> None:
     )
 
 
-async def get_run(run_id: str) -> dict | None:
-    # `id` is a uuid column, so anything that isn't a uuid cannot match a row —
-    # and Postgres doesn't shrug at that, it rejects the whole filter with a
-    # 400. Without this check a stale bookmark or a truncated copy-paste comes
-    # back as a 500 instead of the 404 it obviously is.
+def _is_uuid(value: str) -> bool:
+    """`id` and `thread_id` are uuid columns, so anything that isn't a uuid
+    cannot match a row — and Postgres doesn't shrug at that, it rejects the
+    whole filter with a 400. Without this check a stale bookmark or a truncated
+    copy-paste comes back as a 500 instead of the 404 it obviously is."""
     try:
-        UUID(run_id)
+        UUID(value)
     except ValueError:
+        return False
+    return True
+
+
+# The client never needs `messages` — that column is the model's copy of the
+# conversation, and it's large. Naming the columns keeps the poll response small
+# on a connection we hit every 1.5 seconds.
+_RUN_COLUMNS = "id,thread_id,query,status,result,error,provider,model,created_at"
+
+
+async def get_run(run_id: str) -> dict | None:
+    if not _is_uuid(run_id):
         return None
 
     rows = _check(
-        await _client.get("/runs", params={"id": f"eq.{run_id}", "select": "*"})
+        await _client.get(
+            "/runs", params={"id": f"eq.{run_id}", "select": _RUN_COLUMNS}
+        )
     )
     return rows[0] if rows else None
+
+
+# -----------------------------------------------------------------------------
+#  threads — several runs that belong to one conversation
+# -----------------------------------------------------------------------------
+
+
+async def get_thread_messages(thread_id: str) -> list[dict]:
+    """The conversation so far, as the model saw it.
+
+    Only completed runs save their messages, so `messages=not.is.null` skips
+    failed and in-flight ones and the newest remaining row is the last good
+    state of the conversation. A run that died therefore doesn't corrupt the
+    thread — the next question simply resumes from before it.
+    """
+    if not _is_uuid(thread_id):
+        return []
+
+    rows = _check(
+        await _client.get(
+            "/runs",
+            params={
+                "thread_id": f"eq.{thread_id}",
+                "messages": "not.is.null",
+                "select": "messages",
+                "order": "created_at.desc",
+                "limit": "1",
+            },
+        )
+    )
+    return rows[0]["messages"] if rows else []
+
+
+async def get_thread(thread_id: str) -> list[dict]:
+    """Every run in a conversation, oldest first.
+
+    This is what lets the client rebuild a conversation it no longer has in
+    memory — reload the page and it's still there, because it was never really
+    in the browser to begin with.
+    """
+    if not _is_uuid(thread_id):
+        return []
+
+    return (
+        _check(
+            await _client.get(
+                "/runs",
+                params={
+                    "thread_id": f"eq.{thread_id}",
+                    "select": _RUN_COLUMNS,
+                    "order": "created_at.asc",
+                },
+            )
+        )
+        or []
+    )
+
+
+async def count_thread_runs(thread_id: str) -> int:
+    """How many questions this conversation has already asked.
+
+    Selecting one small column rather than the rows themselves: this runs inside
+    the user's request, where our budget is milliseconds.
+    """
+    if not _is_uuid(thread_id):
+        return 0
+
+    rows = _check(
+        await _client.get(
+            "/runs", params={"thread_id": f"eq.{thread_id}", "select": "id"}
+        )
+    )
+    return len(rows or [])
 
 
 # -----------------------------------------------------------------------------

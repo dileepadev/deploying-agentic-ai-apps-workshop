@@ -109,6 +109,11 @@ async def docs():
 class RunRequest(BaseModel):
     query: str = Field(min_length=3, max_length=500)
 
+    # Omit it to start a new conversation; send back the one you were given to
+    # continue the last. That single optional field is the entire difference
+    # between "a question box" and "an agent you can talk to".
+    thread_id: str | None = None
+
 
 # -----------------------------------------------------------------------------
 #  Health
@@ -134,13 +139,20 @@ async def health():
     sit through your cold start.
 
     It reports the provider as well as the model, which is how you confirm a
-    switched-over deployment is really using the key you think it is.
+    switched-over deployment is really using the key you think it is. The client
+    shows all of it in the header, so "which model am I actually talking to?" is
+    answered on screen instead of by reading a dashboard.
     """
     return {
         "ok": True,
         "database": await db.ping(),
         "provider": config.LLM_PROVIDER,
         "model": config.LLM_MODEL,
+        # Whether a Tavily key is configured — i.e. whether this deployment can
+        # answer questions about anything recent. Worth surfacing: without it
+        # the agent is limited to Wikipedia and will say so, and knowing that up
+        # front beats wondering why it keeps declining to check the news.
+        "web_search": bool(config.TAVILY_API_KEY),
     }
 
 
@@ -157,12 +169,34 @@ async def create_run(body: RunRequest, background: BackgroundTasks):
     I have not finished it." The response comes back in about 200ms no matter
     how long the agent ends up taking.
     """
-    run_id = await db.create_run(body.query)
+    # Refuse a conversation that has grown too long, here rather than in the
+    # agent. A guardrail the user can act on ("start a new one") belongs in
+    # front of the work, not three minutes into a run that was doomed anyway.
+    if body.thread_id:
+        turns = await db.count_thread_runs(body.thread_id)
+        if turns >= config.MAX_THREAD_TURNS:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"This conversation has reached {config.MAX_THREAD_TURNS} "
+                    f"turns. Every turn re-sends the whole history, so threads "
+                    f"can't grow forever — start a new conversation."
+                ),
+            )
+
+    run = await db.create_run(body.query, body.thread_id)
 
     # Queue the slow work to run AFTER this response has been sent.
-    background.add_task(research.run_agent, run_id, body.query)
+    background.add_task(research.run_agent, run["id"], body.query, run["thread_id"])
 
-    return {"run_id": run_id, "status": "queued", "poll": f"/runs/{run_id}"}
+    return {
+        "run_id": run["id"],
+        # Send this back with the next question to continue the conversation.
+        # A new thread_id was minted by the database if none was supplied.
+        "thread_id": run["thread_id"],
+        "status": "queued",
+        "poll": f"/runs/{run['id']}",
+    }
 
 
 @app.get("/runs/{run_id}")
@@ -172,6 +206,21 @@ async def read_run(run_id: str):
     if run is None:
         raise HTTPException(status_code=404, detail="Run not found")
     return {"run": run, "steps": await db.get_steps(run_id)}
+
+
+@app.get("/threads/{thread_id}")
+async def read_thread(thread_id: str):
+    """Every run in one conversation, oldest first.
+
+    The client keeps the conversation on screen by itself while you're using it.
+    This endpoint is what puts it back after a reload — the conversation lives in
+    Postgres, not in a browser tab, which is also why you can carry a thread id
+    from your laptop to your phone.
+    """
+    runs = await db.get_thread(thread_id)
+    if not runs:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    return {"thread_id": thread_id, "runs": runs}
 
 
 # -----------------------------------------------------------------------------
@@ -194,7 +243,10 @@ async def create_run_naive(body: RunRequest):
 
     Raising the timeout doesn't fix this. It just moves the wall.
     """
-    run_id = await db.create_run(body.query)
-    await research.run_agent(run_id, body.query)  # <-- blocks for 30-60 seconds
-    run = await db.get_run(run_id)
-    return {"run": run, "steps": await db.get_steps(run_id)}
+    run = await db.create_run(body.query, body.thread_id)
+    # <-- blocks for 30-60 seconds
+    await research.run_agent(run["id"], body.query, run["thread_id"])
+    return {
+        "run": await db.get_run(run["id"]),
+        "steps": await db.get_steps(run["id"]),
+    }

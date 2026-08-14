@@ -34,6 +34,9 @@ def test_health_reports_database_model_and_provider(client):
     assert body["database"] is True
     assert body["model"]  # whichever model is configured
     assert body["provider"] in config.PROVIDERS
+    # Whether this deployment can reach the live web, which decides what kinds
+    # of question it can honestly answer.
+    assert body["web_search"] is bool(config.TAVILY_API_KEY)
 
 
 def test_post_runs_answers_before_the_agent_has_finished(client):
@@ -50,7 +53,7 @@ def test_post_runs_answers_before_the_agent_has_finished(client):
     # awaiting the agent directly instead of queueing it, the agent would still
     # execute and `queued` below would be empty.
     with (
-        patch("db.create_run", return_value="run-abc"),
+        patch("db.create_run", return_value={"id": "run-abc", "thread_id": "thr-1"}),
         patch.object(BackgroundTasks, "add_task", autospec=True) as add_task,
     ):
         response = client.post("/runs", json={"query": "how do solar panels work?"})
@@ -61,11 +64,14 @@ def test_post_runs_answers_before_the_agent_has_finished(client):
     assert body["status"] == "queued"
     assert "result" not in body  # no answer in the response — the whole point
     assert body["poll"] == "/runs/run-abc"
+    # Handed back so the next question can continue this conversation.
+    assert body["thread_id"] == "thr-1"
 
     # The agent was handed to BackgroundTasks, not awaited in the handler.
     queued = add_task.call_args[0]
     assert queued[1] is research.run_agent
     assert queued[2] == "run-abc"
+    assert queued[4] == "thr-1"
 
 
 def test_the_naive_endpoint_does_the_opposite(client):
@@ -76,11 +82,11 @@ def test_the_naive_endpoint_does_the_opposite(client):
     """
     awaited = []
 
-    async def fake_agent(run_id, query):
+    async def fake_agent(run_id, query, thread_id):
         awaited.append(run_id)
 
     with (
-        patch("db.create_run", return_value="run-xyz"),
+        patch("db.create_run", return_value={"id": "run-xyz", "thread_id": "thr-1"}),
         patch("db.get_run", return_value={"id": "run-xyz", "status": "done"}),
         patch("db.get_steps", return_value=[]),
         patch("main.research.run_agent", side_effect=fake_agent),
@@ -92,6 +98,74 @@ def test_the_naive_endpoint_does_the_opposite(client):
     assert response.status_code == 200
     assert awaited == ["run-xyz"]  # awaited inline — the bug, on purpose
     assert response.json()["run"]["status"] == "done"
+
+
+def test_a_follow_up_question_stays_in_the_same_conversation(client):
+    """Send a thread_id back and the run joins that conversation.
+
+    This is the whole client-side contract for memory: keep the thread_id you
+    were given, send it with the next question. Everything else — loading the
+    history, re-sending it to the model — happens on the server.
+    """
+    from starlette.background import BackgroundTasks
+
+    with (
+        patch("db.count_thread_runs", return_value=2),
+        patch(
+            "db.create_run", return_value={"id": "run-2", "thread_id": "thr-1"}
+        ) as create_run,
+        patch.object(BackgroundTasks, "add_task", autospec=True) as add_task,
+    ):
+        response = client.post(
+            "/runs", json={"query": "why is that?", "thread_id": "thr-1"}
+        )
+
+    assert response.status_code == 202
+    assert response.json()["thread_id"] == "thr-1"
+    assert create_run.call_args[0] == ("why is that?", "thr-1")
+    assert add_task.call_args[0][4] == "thr-1"
+
+
+def test_a_conversation_cannot_grow_forever(client):
+    """The other ceiling: threads are capped, and the error says what to do.
+
+    Every turn re-sends the whole history, so an uncapped thread gets more
+    expensive per question until it stops fitting in the context window. Better
+    a 409 the user can act on than a run that dies three minutes in.
+    """
+    with (
+        patch("db.count_thread_runs", return_value=config.MAX_THREAD_TURNS),
+        patch("db.create_run") as create_run,
+    ):
+        response = client.post(
+            "/runs", json={"query": "one more question", "thread_id": "thr-1"}
+        )
+
+    assert response.status_code == 409
+    assert "new conversation" in response.json()["detail"]
+    create_run.assert_not_called()  # rejected before it cost anything
+
+
+def test_a_thread_can_be_read_back_after_a_reload(client):
+    """The conversation lives in Postgres, not in a browser tab."""
+    runs = [
+        {"id": "run-1", "query": "how do solar panels work?", "status": "done"},
+        {"id": "run-2", "query": "why is that?", "status": "done"},
+    ]
+
+    with patch("db.get_thread", return_value=runs):
+        body = client.get("/threads/thr-1").json()
+
+    assert body["thread_id"] == "thr-1"
+    assert [run["query"] for run in body["runs"]] == [
+        "how do solar panels work?",
+        "why is that?",
+    ]
+
+
+def test_unknown_thread_is_a_404(client):
+    with patch("db.get_thread", return_value=[]):
+        assert client.get("/threads/thr-nope").status_code == 404
 
 
 def test_short_queries_are_rejected_before_they_cost_anything(client):
