@@ -67,7 +67,7 @@ Now the same functions, wrapped as an MCP server:
 
 ```python title="app/tools/server.py"
 from fastmcp import FastMCP
-from app.tools import wikipedia
+from tools import wikipedia
 
 mcp = FastMCP(name="research-tools", instructions="...")
 
@@ -112,12 +112,12 @@ isn't — the "isn't" matters as much.
 
 ## Try it
 
-Call the tools directly, with no agent and no API key:
+Call the tools directly, with no agent and no API key. From `app/`:
 
 ```bash
 uv run python -c "
 import asyncio
-from app.tools import wikipedia
+from tools import wikipedia
 print(asyncio.run(wikipedia.search('photovoltaic effect')))
 "
 ```
@@ -125,7 +125,7 @@ print(asyncio.run(wikipedia.search('photovoltaic effect')))
 Then poke at the MCP server with the official Inspector:
 
 ```bash
-uv run fastmcp dev app/tools/server.py
+uv run fastmcp dev tools/server.py
 ```
 
 That opens a browser UI where you can list the tools and call them by hand.
@@ -168,11 +168,11 @@ actually wrong — usually no network, or a proxy.
 </details>
 
 <details>
-<summary><code>ModuleNotFoundError: No module named 'app'</code></summary>
+<summary><code>ModuleNotFoundError: No module named 'tools'</code></summary>
 
 
-Run commands from the **repo root**, not from inside `app/`. `uv run`
-resolves imports relative to the project root.
+Run commands from **inside `app/`**, not the repo root. That's the uv
+project root, so it's what `uv run` resolves imports against.
 
 </details>
 

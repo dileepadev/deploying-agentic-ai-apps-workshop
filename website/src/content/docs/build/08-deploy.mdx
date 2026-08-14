@@ -44,9 +44,9 @@ doesn't help.
 
     | Field | Value |
     |---|---|
-    | **Root Directory** | *(leave blank — the repo root)* |
+    | **Root Directory** | `app` — the uv project, not the repo root |
     | **Build Command** | `pip install uv && uv sync --frozen` |
-    | **Start Command** | `uv run fastapi run app/main.py --port $PORT` |
+    | **Start Command** | `uv run fastapi run main.py --port $PORT` |
     | **Instance Type** | Free |
 
 4. **Environment** → add `GEMINI_API_KEY`, `SUPABASE_URL`,
@@ -154,7 +154,8 @@ Render's Python image doesn't ship uv.
 
 
 Check the start command binds `0.0.0.0` and uses `$PORT`. Also check the
-Root Directory is **blank** — `app.main:app` is resolved from the repo root.
+Root Directory is set to `app` — that's where `pyproject.toml` and `main.py`
+live, and without it uv has no project to sync.
 
 </details>
 

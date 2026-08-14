@@ -1576,9 +1576,10 @@ GEMINI_API_KEY=</pre>
             <em>not</em> in the repo
           </li>
           <li>
-            <strong>Render → New Web Service</strong> → connect the repo → build
+            <strong>Render → New Web Service</strong> → connect the repo → root
+            <code>app</code>, build
             <code>pip install uv &amp;&amp; uv sync --frozen</code>, start
-            <code>uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT</code>
+            <code>uv run uvicorn main:app --host 0.0.0.0 --port $PORT</code>
           </li>
           <li>
             <strong>Add your three environment variables</strong> in Render's

@@ -32,11 +32,13 @@ for the author". `uv sync` reads `pyproject.toml` and `uv.lock` and builds the
 *exact* environment this project was tested with, down to the Python version.
 No activate step to forget.
 
-**Where it is.** `pyproject.toml`, `uv.lock`, `.python-version` at the repo root.
+**Where it is.** `app/pyproject.toml`, `app/uv.lock`, `app/.python-version` —
+the deployed application is its own uv project, kept out of the repo root.
 
 ```bash
-uv sync                          # create the environment
-uv run fastapi dev app/main.py   # run something in it
+cd app
+uv sync                    # create the environment
+uv run fastapi dev main.py # run something in it
 ```
 
 **What it costs.** Nothing, open source.

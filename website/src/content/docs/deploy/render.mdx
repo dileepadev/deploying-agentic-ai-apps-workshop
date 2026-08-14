@@ -29,10 +29,10 @@ Render → **New +** → **Web Service** → connect your repo, then:
 
 | Field | Value |
 |---|---|
-| Root Directory | *(blank)* |
+| Root Directory | `app` |
 | Runtime | Python |
 | Build Command | `pip install uv && uv sync --frozen` |
-| Start Command | `uv run fastapi run app/main.py --port $PORT` |
+| Start Command | `uv run fastapi run main.py --port $PORT` |
 | Instance Type | Free |
 | Health Check Path | `/health` |
 
@@ -47,8 +47,9 @@ services:
     name: research-agent
     runtime: python
     plan: free
+    rootDir: app
     buildCommand: pip install uv && uv sync --frozen
-    startCommand: uv run fastapi run app/main.py --port $PORT
+    startCommand: uv run fastapi run main.py --port $PORT
     healthCheckPath: /health
 
     envVars:
@@ -67,8 +68,12 @@ services:
         value: "*"
 ```
 
-Three things in there are worth knowing:
+Four things in there are worth knowing:
 
+- **`rootDir: app`** points Render at the uv project — `pyproject.toml`,
+  `uv.lock`, and the app code all live in `app/`, not the repo root. Every
+  other path in the blueprint, including `buildCommand` and `startCommand`,
+  resolves relative to it.
 - **`uv sync --frozen`** means "use `uv.lock` exactly, don't re-resolve". Your
   deploy gets the versions you tested, not whatever is newest today.
 - **`sync: false`** means *"ask me for this value in the dashboard, and never
@@ -133,7 +138,7 @@ Render shows you the build in real time. Worth knowing what you're looking at:
     Installed 94 packages in 1.2s
 ==> Build successful 🎉
 ==> Deploying...
-==> Running 'uv run fastapi run app/main.py --port $PORT'
+==> Running 'uv run fastapi run main.py --port $PORT'
     INFO:     Uvicorn running on http://0.0.0.0:10000
 ==> Your service is live 🎉
 ```

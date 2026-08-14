@@ -15,18 +15,18 @@ The things that actually go wrong, in roughly the order people hit them.
 Working as designed — config fails loudly at startup rather than
 mysteriously at request time.
 
-- Is `.env` in the **repo root**, not in `app/`?
+- Is `.env` in `app/`?
 - Any quotes around the value? Don't quote them.
 - Deployed? Environment changes need a **redeploy** to take effect.
 
 </details>
 
 <details>
-<summary><code>ModuleNotFoundError: No module named 'app'</code></summary>
+<summary><code>ModuleNotFoundError</code> for a local module like <code>agent</code> or <code>tools</code></summary>
 
 
-Run from the repo root, not from inside `app/`. Use `uv run …` so imports
-resolve from the project root.
+Run from **inside `app/`**, not the repo root — that's the uv project root,
+and `uv run …` resolves imports relative to it.
 
 </details>
 
@@ -44,7 +44,7 @@ Open a new terminal, or `source ~/.zshrc` / `source ~/.bashrc`.
 
 
 They shouldn't — the suite needs no network and no keys. If they're hitting
-the network, something in the code under test lost its mock. Run
+the network, something in the code under test lost its mock. From `app/`, run
 `uv run --extra dev pytest -v` and check which test.
 
 </details>
@@ -194,6 +194,16 @@ from "can the browser talk to it".
 
 Render's Python image doesn't ship uv. The build command needs
 `pip install uv && uv sync --frozen`.
+
+</details>
+
+<details>
+<summary>Build fails: no <code>pyproject.toml</code> found</summary>
+
+
+The uv project lives in `app/`, not the repo root. Check the service's Root
+Directory is set to `app` — `deploy/render.yaml` handles this for you via
+`rootDir: app`, but a service created by hand needs the field set explicitly.
 
 </details>
 

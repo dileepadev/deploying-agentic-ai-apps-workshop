@@ -101,8 +101,10 @@ That's rare enough to be worth noticing.
 
 ## Try it
 
+From `app/`:
+
 ```bash
-uv run fastapi dev app/main.py
+uv run fastapi dev main.py
 ```
 
 Open `client/index.html`, **untick Naive mode**, and ask the same question as step
@@ -149,6 +151,8 @@ and it doesn't change the architecture — just how the background work is
 scheduled.
 
 ## A test that protects this
+
+From `app/`:
 
 ```bash
 uv run --extra dev pytest tests/test_api.py -v

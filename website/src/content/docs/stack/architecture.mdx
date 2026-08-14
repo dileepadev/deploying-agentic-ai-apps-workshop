@@ -112,7 +112,8 @@ when you add RAG; nothing writes to it yet.
 
 ```text
 deploying-agentic-ai-apps-workshop/
-├── app/                     the deployed application
+├── app/                     the deployed application — its own uv project
+│   ├── pyproject.toml       dependencies, pinned by app/uv.lock
 │   ├── main.py              the API — /runs vs /runs/naive
 │   ├── config.py            environment variables, validated at startup
 │   ├── db.py                Supabase over its REST API
@@ -121,13 +122,14 @@ deploying-agentic-ai-apps-workshop/
 │   │   ├── research.py      the agent — Pydantic AI
 │   │   ├── manual_loop.py   the same loop by hand, for reading
 │   │   └── steps.py         step logging + the step ceiling
-│   └── tools/
-│       ├── wikipedia.py     the tools themselves
-│       └── server.py        the same tools, over MCP
+│   ├── tools/
+│   │   ├── wikipedia.py     the tools themselves
+│   │   └── server.py        the same tools, over MCP
+│   ├── tests/               12 tests, no network or keys needed
+│   └── http/                ready-made requests for driving the API by hand
 ├── client/index.html        the client — vanilla JS, no build
 ├── database/schema.sql      three tables
 ├── deploy/render.yaml       infrastructure as a file
-├── tests/                   12 tests, no network or keys needed
 ├── slides/                  the presentation deck
 ├── website/                 this site
 └── docs/                    run of show, prep notes, free-tier notes
