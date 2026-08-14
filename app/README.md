@@ -12,8 +12,8 @@ or the [root README](../README.md).
 
 ```bash
 uv sync                          # install dependencies, exact versions from uv.lock
-cp .env.example .env             # then fill in the three values
-uv run --extra dev pytest        # 17 tests, no API key or network needed
+cp .env.example .env             # then fill in the three required values
+uv run --extra dev pytest        # 37 tests, no API key or network needed
 uv run fastapi dev main.py       # start the server at http://localhost:8000
 ```
 
@@ -27,7 +27,8 @@ uv run fastapi dev main.py       # start the server at http://localhost:8000
 | [`llm.py`](llm.py) | Raw Gemini calls (used by `agent/manual_loop.py` only) |
 | [`agent/`](agent/) | The agent — Pydantic AI, plus the same loop written by hand |
 | [`tools/`](tools/) | The tools, and the same tools exposed over MCP |
-| [`tests/`](tests/) | 17 tests that need no API key or network |
+| Web search | Tavily's *hosted* MCP server, used as a client — see [`agent/research.py`](agent/research.py) |
+| [`tests/`](tests/) | 37 tests that need no API key or network |
 | [`http/`](http/) | Ready-made `.http` requests for driving a *running* server by hand |
 | `.env` / `.env.example` | Secrets, local-only (gitignored) — never committed |
 

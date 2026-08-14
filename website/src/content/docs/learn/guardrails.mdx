@@ -65,6 +65,22 @@ async def log(self, label: str, detail: str | None = None) -> None:
 Twelve steps by default. It is four lines, it sits *outside* the model's
 judgement entirely, and it is the highest-value guardrail in the project.
 
+There's a second ceiling next to it, on a different axis. The step ceiling stops
+one run looping; `MAX_THREAD_TURNS` stops one *conversation* growing forever.
+Every turn re-sends the whole history, so a long thread costs more per question
+than a short one and eventually stops fitting in the context window at all:
+
+```python title="app/main.py"
+if body.thread_id:
+    turns = await db.count_thread_runs(body.thread_id)
+    if turns >= config.MAX_THREAD_TURNS:
+        raise HTTPException(status_code=409, detail="...start a new conversation.")
+```
+
+Note *where* it is: in the request handler, before the work is queued. A limit
+the user can act on belongs in front of the job, not three minutes into a run
+that was doomed when it started.
+
 ## 3. Database permissions, not trust
 
 Supabase gives you two kinds of key, and the difference between them matters
@@ -139,7 +155,7 @@ Skipping them isn't a time saving, it's a deferred incident.
 
 <div class="inrepo">
 <code>app/agent/steps.py</code> — the step ceiling.<br />
-<code>app/main.py</code> — request validation.<br />
+<code>app/main.py</code> — request validation, and the conversation cap.<br />
 <code>database/schema.sql</code> — RLS, default-deny.<br />
 <code>app/tools/wikipedia.py</code> — narrow, read-only tools that fail politely.
 </div>

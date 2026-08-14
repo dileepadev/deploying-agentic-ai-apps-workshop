@@ -12,6 +12,10 @@
 ###       Accept has to list text/event-stream.
 ###    2. It is stateful. `initialize` hands back an `mcp-session-id` header,
 ###       and every later call has to send it back. Run these top to bottom.
+###
+###  This file is us as the SERVER. The agent is also an MCP *client* — it
+###  calls tavily_search on Tavily's hosted server the same way any client
+###  calls ours. See app/agent/research.py.
 ### =========================================================================
 
 @baseUrl = http://localhost:8000

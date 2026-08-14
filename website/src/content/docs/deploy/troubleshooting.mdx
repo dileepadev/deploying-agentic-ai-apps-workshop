@@ -73,6 +73,51 @@ In order of likelihood:
 </details>
 
 <details>
+<summary><code>POST /runs</code> 500s with <code>column runs.thread_id does not exist</code></summary>
+
+
+Your database was created before conversations existed. `create table if not
+exists` does **not** add columns to a table that's already there, so re-running
+an older copy of the schema changed nothing.
+
+Fix: run `database/schema.sql` again from the current repo. The `alter table …
+add column if not exists` lines near the top of the `runs` section do the
+upgrade, and the whole file is safe to re-run on a fresh database too.
+
+The same applies to `runs.messages`, `runs.provider` and `runs.model`.
+
+</details>
+
+<details>
+<summary><code>409</code> — "This conversation has reached 10 turns"</summary>
+
+
+Working as intended. Every turn re-sends the whole history, so a thread costs
+more per question the longer it runs and eventually stops fitting in the context
+window. `MAX_THREAD_TURNS` turns that into an error you can act on.
+
+Start a new conversation — the **New conversation** button in the client, or just
+omit `thread_id` on the next `POST /runs`. Raise the limit only if you know your
+model's context window can take it.
+
+</details>
+
+<details>
+<summary>The agent won't answer anything about recent events</summary>
+
+
+Check `web_search` on `/health`. If it's `false`, no `TAVILY_API_KEY` is set and
+the agent only has Wikipedia — which is written after the fact and genuinely
+can't help. It should *say* so rather than guess; if it's guessing instead,
+that's worth knowing.
+
+If it's `true` and the agent still won't search, look at the step log for
+`Searching the web`. No such step means the model chose not to call the tool —
+usually a sign the question doesn't read as time-sensitive.
+
+</details>
+
+<details>
 <summary>Everything worked yesterday, today nothing does</summary>
 
 

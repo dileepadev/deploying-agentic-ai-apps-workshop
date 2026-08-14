@@ -17,10 +17,14 @@ you do not have — this is the single highest-leverage thing you do in prep.
 > Each participant needs **their own** Gemini API key. Free-tier limits are counted
 > per key, so a shared key will rate-limit the entire room within minutes.
 
-**Optional, for the bonus deployments.** Both are free and neither asks for a card,
-but don't put them in the required list — they're extras for people who finish early
-or want to carry on afterwards:
+**Optional extras.** All free, none asks for a card, and none belongs in the required
+list — they're for people who finish early or want to carry on afterwards:
 
+- **[Tavily](https://app.tavily.com)** — a web-search key, so the agent can answer
+  questions about recent events instead of only what Wikipedia has written up. Leave
+  it unset and everything in the session still works; the agent just says it can't
+  check current information. Worth having on **your own** machine for the demo, since
+  "what happened this week?" is the most convincing question you can ask it.
 - **[FastAPI Cloud](https://fastapicloud.com)**, signed in with GitHub — deploying the
   same agent to a second host
 - **[Vercel](https://vercel.com)**, signed in with GitHub — deploying the web client

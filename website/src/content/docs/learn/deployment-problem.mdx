@@ -129,9 +129,9 @@ and you got it for free out of the same mechanism that fixed the timeout.
 ```python title="app/main.py"
 @app.post("/runs", status_code=202)
 async def create_run(body: RunRequest, background: BackgroundTasks):
-    run_id = await db.create_run(body.query)
-    background.add_task(research.run_agent, run_id, body.query)
-    return {"run_id": run_id, "status": "queued", "poll": f"/runs/{run_id}"}
+    run = await db.create_run(body.query, body.thread_id)
+    background.add_task(research.run_agent, run["id"], body.query, run["thread_id"])
+    return {"run_id": run["id"], "thread_id": run["thread_id"], "status": "queued"}
 ```
 
 `add_task` queues the work to run *after* the response has been sent. Change
@@ -193,7 +193,7 @@ That toggle is the most persuasive thing in the entire workshop, and it's why
 <div class="inrepo">
 <code>app/main.py</code> — <code>create_run()</code> and
 <code>create_run_naive()</code>, about 40 lines apart.<br />
-<code>client/src/useRun.ts</code> — the Naive mode branch and the polling loop.<br />
+<code>client/src/useConversation.ts</code> — the Naive mode branch and the polling loop.<br />
 <code>app/tests/test_api.py</code> — a test that fails if anyone moves the agent
 back inside the request.
 </div>

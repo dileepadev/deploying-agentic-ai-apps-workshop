@@ -81,6 +81,69 @@ app.mount("/mcp", mcp_app)
 That's the honest justification, and it's as much a deployment lesson as a
 protocol one: **no second service, no second thing to keep awake.**
 
+## The other direction: someone else's server
+
+Everything above is us as the **server**. The protocol has a second half, and
+this project uses that too — because a protocol you only ever serve is a
+protocol you've half learned.
+
+Our agent has a gap. Wikipedia is written after the fact, so ask about this week
+and there's nothing there, and the model falls back on training data that ended
+months ago. It will answer anyway, fluently and wrongly. Fixing that means
+searching the live web, and we are not about to build a web crawler.
+
+[Tavily](https://tavily.com) runs a search API for exactly this, and they host
+an MCP server for it. So we connect to theirs:
+
+```python title="app/agent/research.py"
+toolset = MCPToolset(
+    "https://mcp.tavily.com/mcp",
+    headers={"Authorization": f"Bearer {config.TAVILY_API_KEY}"},
+    process_tool_call=_log_web_search,
+)
+# Their server also offers crawl, map and extract. We take one tool.
+return toolset.filtered(lambda ctx, tool: tool.name == "tavily_search")
+```
+
+Count what we didn't write: no HTTP calls, no request shape, no response
+parsing, and — the part that matters — **no tool descriptions for the model**.
+Their server describes its own tools, our agent asks what's available, and the
+model gets a menu nobody had to write twice. Compare `tools/wikipedia.py`, where
+every one of those is ours to maintain forever.
+
+That is the payoff the table above is really pointing at. The plumbing is the
+same however many servers you connect to, and Tavily wrote none of it for us.
+
+<Aside type="tip" title="Two habits worth copying">
+
+
+**Filter the tools.** Tavily's server offers five. Handing all five to the model
+is four new ways to spend your credits and a bigger menu to get confused by. The
+"tools should be narrow" rule from [page 3](../tool-calling/) doesn't stop
+applying to tools you didn't write.
+
+**Keep the key out of the URL.** Every quickstart writes
+`?tavilyApiKey=...`, and it works. A URL is also the most-logged string in any
+stack — proxies, tracebacks and error reporters all record it. Headers aren't
+logged by default anywhere in that chain.
+
+</Aside>
+
+One more thing, and it's the reason this isn't just a config change. Our own
+tools log a step each before they work — that's what makes the UI say "Agent is
+searching…" instead of going quiet. We didn't write Tavily's tool, so it can't
+do that. `process_tool_call` is the hook that sits between the agent and their
+server and lets us log it anyway:
+
+```python title="app/agent/research.py"
+async def _log_web_search(ctx, call_tool, name, tool_args) -> ToolResult:
+    await ctx.deps.steps.log("Searching the web", tool_args.get("query", ""))
+    return await call_tool(name, tool_args)
+```
+
+**A tool you don't own shouldn't be exempt from your observability.** Crossing a
+boundary is not a reason to go blind at it.
+
 ## Where it would be the wrong choice
 
 Deliberately **not** exposed over MCP in this project:
@@ -111,7 +174,7 @@ Otherwise call the function.
 
 ## How we use this in the demo
 
-The same two functions, exposed twice:
+Our own two functions, exposed twice:
 
 - **In-process**, via `@agent.tool`, for our own agent — fast, no hop.
 - **Over MCP** at `/mcp`, for anyone else.
@@ -120,10 +183,18 @@ One implementation, two doors. [Build step 3](../../build/03-tools/) has you cal
 it with the MCP Inspector, and [step 8](../../build/08-deploy/) has you connect
 Claude Desktop to your own deployed instance.
 
+And, in the other direction, somebody else's function used through the same
+protocol — Tavily's `tavily_search`, which is how the agent answers anything
+that happened recently. Leave `TAVILY_API_KEY` unset and it runs on Wikipedia
+alone; `GET /health` reports which of the two you've got.
+
+So this one app is a server *and* a client. That symmetry is the whole point of
+there being a protocol at all.
+
 <div class="inrepo">
 <code>app/tools/wikipedia.py</code> — one implementation.<br />
-<code>app/tools/server.py</code> — the MCP door.<br />
-<code>app/agent/research.py</code> — the in-process door.
+<code>app/tools/server.py</code> — the MCP door, outward.<br />
+<code>app/agent/research.py</code> — the in-process door, and the MCP door inward.
 </div>
 
 ---

@@ -85,7 +85,8 @@ logs.
 
 Same principle as everywhere else: **secrets in the platform, never the repo.**
 You need the same three as on Render — `LLM_API_KEY`, `SUPABASE_URL`,
-`SUPABASE_SECRET_KEY` — plus `ALLOWED_ORIGINS` once you have a deployed client.
+`SUPABASE_SECRET_KEY` — plus `ALLOWED_ORIGINS` once you have a deployed client,
+and `TAVILY_API_KEY` if you want web search.
 
 <Tabs>
 <TabItem label="In the dashboard">
@@ -114,6 +115,7 @@ turn Secret on now.
 uv run fastapi env set LLM_API_KEY
 uv run fastapi env set SUPABASE_URL
 uv run fastapi env set SUPABASE_SECRET_KEY
+uv run fastapi env set TAVILY_API_KEY     # optional — web search
 ```
 
 </TabItem>

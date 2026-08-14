@@ -176,6 +176,19 @@ project root, so it's what `uv run` resolves imports against.
 
 </details>
 
+## Where the *other* tool comes from
+
+Two of the agent's three tools are the ones you just wrote. The third,
+`tavily_search`, you don't write at all — it arrives from Tavily's hosted MCP
+server, which the agent connects to as a client. Same protocol you just stood up
+here, pointed the other way.
+
+It's optional and it's four lines, so it lives in
+[`app/agent/research.py`](../05-framework/) rather than in this step. Set
+`TAVILY_API_KEY` in `.env` if you want the agent to answer questions about
+anything recent — Wikipedia, being written after the fact, can't. See
+[Learn · MCP](../../learn/mcp/#the-other-direction-someone-elses-server).
+
 ## What's next
 
 You have tools. Now something has to decide when to use them — and the clearest

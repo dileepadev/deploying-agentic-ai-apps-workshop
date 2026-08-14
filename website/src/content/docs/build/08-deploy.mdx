@@ -68,7 +68,8 @@ doesn't help.
     | **Instance Type** | Free |
 
 4. **Environment** → add `LLM_API_KEY`, `SUPABASE_URL`,
-   `SUPABASE_SECRET_KEY`.
+   `SUPABASE_SECRET_KEY`. Add `TAVILY_API_KEY` too if you want the deployed
+   agent to be able to search the live web.
 
     This is where secrets live in production: **in the platform, not the repo.**
     Same code, different source — `app/config.py` reads `os.environ` either way.
@@ -106,8 +107,8 @@ command** — it reads `app/pyproject.toml`, `app/uv.lock` and
 5. **Create App.** It deploys the latest commit on your default branch, and
    every push after that.
 6. **Environment Variables** → add `LLM_API_KEY`, `SUPABASE_URL`,
-   `SUPABASE_SECRET_KEY`, each with the **Secret** toggle on → **Save and
-   Redeploy**.
+   `SUPABASE_SECRET_KEY` (and `TAVILY_API_KEY` if you're using web search),
+   each with the **Secret** toggle on → **Save and Redeploy**.
 
 Prefer the terminal? From `app/`:
 
@@ -140,7 +141,8 @@ curl https://<your-service>.onrender.com/health
 ```
 
 ```json
-{"ok": true, "database": true, "model": "gemini-flash-latest"}
+{"ok": true, "database": true, "provider": "google",
+ "model": "gemini-flash-latest", "web_search": false}
 ```
 
 Two seconds, and it tells you the deploy worked *and* the database is reachable.

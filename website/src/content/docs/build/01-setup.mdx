@@ -89,6 +89,16 @@ Open `.env` (in `app/`, next to `pyproject.toml`) and fill in three values:
 | `SUPABASE_URL` | Supabase → **Connect** (top of the dashboard) → *Project URL* |
 | `SUPABASE_SECRET_KEY` | Supabase → **Settings → API Keys** → *Secret keys* → starts with `sb_secret_` |
 
+One more is optional, and you can add it later without changing anything else:
+
+| Variable | Where to get it | What it buys |
+|---|---|---|
+| `TAVILY_API_KEY` | [https://app.tavily.com](https://app.tavily.com) → free, no card | Web search, so the agent can answer questions about *this week* rather than only what Wikipedia has written up |
+
+Leave it blank and everything in this workshop still works — the agent
+researches with Wikipedia alone, and says so when asked about something
+recent.
+
 <Aside type="tip" title="Prefer a different model provider?">
 
 
@@ -151,7 +161,8 @@ uv run fastapi dev main.py
 Open [http://localhost:8000/health](http://localhost:8000/health). You want:
 
 ```json
-{"ok": true, "database": true, "model": "gemini-flash-latest"}
+{"ok": true, "database": true, "provider": "google",
+ "model": "gemini-flash-latest", "web_search": false}
 ```
 
 Also open [http://localhost:8000/docs](http://localhost:8000/docs) — FastAPI generates that from your code,

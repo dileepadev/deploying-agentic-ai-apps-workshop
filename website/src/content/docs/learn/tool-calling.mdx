@@ -112,6 +112,7 @@ Two tools, both read-only, both against a free public API:
 |---|---|---|
 | `wiki_search(query, limit)` | returns page titles | no |
 | `wiki_read(title)` | returns one page summary | no |
+| `tavily_search(query)` | searches the live web | no — and we didn't write it either |
 
 The agent decides how many times to call each. Watch the `steps` table during a
 run and you'll usually see it search two or three times before it reads
@@ -127,7 +128,7 @@ anything — exactly the behaviour the instructions asked for.
 
 ## Where this leaves us
 
-Our two functions live in the same folder as our agent, so wiring them together
+Our own two functions live in the same folder as our agent, so wiring them together
 was a decorator and nothing more.
 
 But tools are useful things. Once you've built a good one, the obvious next

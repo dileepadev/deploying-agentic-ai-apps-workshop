@@ -59,6 +59,8 @@ services:
         sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
+      - key: TAVILY_API_KEY
+        sync: false
 
       - key: LLM_MODEL
         value: gemini-flash-latest
@@ -66,6 +68,8 @@ services:
         value: google
       - key: MAX_AGENT_STEPS
         value: "12"
+      - key: MAX_THREAD_TURNS
+        value: "10"
       - key: ALLOWED_ORIGINS
         value: "*"
 ```
@@ -79,11 +83,13 @@ Four things in there are worth knowing:
 - **`uv sync --frozen`** means "use `uv.lock` exactly, don't re-resolve". Your
   deploy gets the versions you tested, not whatever is newest today.
 - **`sync: false`** means *"ask me for this value in the dashboard, and never
-  store it in the repo"*. This is how secrets stay out of git — the three keys
-  above it are secret, so none of them carry a value here.
+  store it in the repo"*. This is how secrets stay out of git — the four keys
+  above it are secret, so none of them carry a value here. `TAVILY_API_KEY` is
+  the one that's also *optional*: leave it empty in the dashboard and the agent
+  runs on Wikipedia alone.
 - **The variables that do carry a value** (`LLM_MODEL`, `LLM_PROVIDER`,
-  `MAX_AGENT_STEPS`, `ALLOWED_ORIGINS`) aren't secret, so committing them is
-  fine. Change `ALLOWED_ORIGINS` to your real frontend origin before you go
+  `MAX_AGENT_STEPS`, `MAX_THREAD_TURNS`, `ALLOWED_ORIGINS`) aren't secret, so
+  committing them is fine. Change `ALLOWED_ORIGINS` to your real frontend origin before you go
   public.
 
 ## Environment variables
@@ -98,7 +104,9 @@ Dashboard → your service → **Environment**.
 | `LLM_MODEL` | on Google only | defaults to `gemini-flash-latest`; required for every other provider |
 | `LLM_PROVIDER` | no | `google` (default), `cerebras`, `openrouter`, `openai-compatible` |
 | `LLM_BASE_URL` | only for `openai-compatible` | e.g. `https://api.groq.com/openai/v1` |
+| `TAVILY_API_KEY` | no | enables web search, so the agent can answer questions about recent events |
 | `MAX_AGENT_STEPS` | no | defaults to 12 |
+| `MAX_THREAD_TURNS` | no | defaults to 10 — the cap on one conversation |
 | `ALLOWED_ORIGINS` | no | comma-separated, no trailing slash |
 
 <Aside type="tip" title="This panel is your rate-limit escape hatch">

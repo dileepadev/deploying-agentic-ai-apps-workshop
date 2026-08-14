@@ -17,11 +17,15 @@ GET {{baseUrl}}/
 Accept: application/json
 
 
-### Is it alive, and can it reach the database?
+### Is it alive, what's it running, and can it reach the database?
 #
 # On a free tier this is also the wake-up call. Send it ~10 minutes before a
 # demo so nobody watches the cold start. `database: false` means the Supabase
 # key or URL is wrong, the project has paused, or the tables don't exist yet.
+#
+# `provider` and `model` are how you confirm a switched-over deployment is
+# really using the key you think it is. `web_search: false` means no Tavily key
+# is set, so the agent has Wikipedia only and can't answer anything recent.
 GET {{baseUrl}}/health
 Accept: application/json
 
@@ -54,6 +58,57 @@ Accept: application/json
 # to the database as it happens. `status` goes queued -> running -> done.
 GET {{baseUrl}}/runs/{{createRun.response.body.$.run_id}}
 Accept: application/json
+
+
+### =========================================================================
+###  Conversations — the same agent, with a memory
+### =========================================================================
+
+### 3. Ask a follow-up, in the same thread.
+#
+# Note the question: "why is that?" means nothing on its own. It only works
+# because `thread_id` tells the server which conversation to reload — and the
+# server replays the whole thing to the model, which remembers nothing by
+# itself.
+#
+# Send request 1 above first; `thread_id` comes back in that response.
+# @name followUp
+POST {{baseUrl}}/runs
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "why is that? explain the physics in one paragraph",
+  "thread_id": "{{createRun.response.body.$.thread_id}}"
+}
+
+
+### Poll the follow-up.
+GET {{baseUrl}}/runs/{{followUp.response.body.$.run_id}}
+Accept: application/json
+
+
+### 4. Read the whole conversation back.
+#
+# Every run in the thread, oldest first. This is what the client calls after a
+# page reload — proof that the conversation lives in Postgres and not in a
+# browser tab.
+GET {{baseUrl}}/threads/{{createRun.response.body.$.thread_id}}
+Accept: application/json
+
+
+### Something recent — the question Wikipedia can't answer.
+#
+# Needs TAVILY_API_KEY set (check `web_search` on /health). Without it the
+# agent should tell you plainly that it can't check current information,
+# rather than confidently answering from its training data.
+POST {{baseUrl}}/runs
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "what AI model releases were announced this month?"
+}
 
 
 ### =========================================================================

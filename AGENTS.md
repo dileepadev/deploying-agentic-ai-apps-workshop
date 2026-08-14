@@ -29,7 +29,7 @@ See [README.md](README.md) for the full picture and stack.
 
 ## Testing
 
-- `cd app && uv run --extra dev pytest` — 17 tests, no API keys or network needed. Run before calling a backend change done.
+- `cd app && uv run --extra dev pytest` — 37 tests, no API keys or network needed. Run before calling a backend change done.
 - Keep new tests offline (mock external calls — see `app/tests/conftest.py`).
 - `app/http/` holds `.http` request files for driving a *running* server by hand. They are not part of the
   suite and do hit the network — don't move them into `app/tests/`.
@@ -55,5 +55,5 @@ See [README.md](README.md) for the full picture and stack.
 
 ## Anti-hallucination
 
-- The stack is intentionally small and fixed: FastAPI, Pydantic AI, FastMCP, Supabase, Gemini via AI Studio, and Vite + React for the client. Don't propose swapping these unprompted — in particular the client stays a plain SPA, with no SSR framework and no state or data-fetching library.
+- The stack is intentionally small and fixed: FastAPI, Pydantic AI, FastMCP, Supabase, Gemini via AI Studio, Tavily (optional web search, reached as an MCP client), and Vite + React for the client. Don't propose swapping these unprompted — in particular the client stays a plain SPA, with no SSR framework and no state or data-fetching library.
 - Unsure whether a package, API, or Gemini model name is real? Say so instead of guessing — retired Gemini model names 404 silently (see `app/.env.example`).

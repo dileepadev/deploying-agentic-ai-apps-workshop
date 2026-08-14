@@ -37,14 +37,25 @@ Open your Supabase project → **SQL Editor** → **New query**. Paste all of
 ```sql
 create table if not exists runs (
   id          uuid primary key default gen_random_uuid(),
+  thread_id   uuid not null default gen_random_uuid(),  -- the conversation
   query       text not null,
   status      text not null default 'queued',   -- queued | running | done | error
   result      text,                             -- the final answer
   error       text,                             -- why it failed, if it failed
+  messages    jsonb,                            -- the conversation, for the model
+  provider    text,                             -- who generated it: google, ...
+  model       text,                             -- ...and which model
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 ```
+
+A run also belongs to a **thread**. One question is one run; a conversation is
+several runs sharing a `thread_id`, and `messages` is that conversation in the
+shape the model wants it back — which is the entire mechanism behind "the agent
+remembers what we were talking about". `provider` and `model` record who
+generated each answer, so a run still tells the truth about itself after you've
+switched keys.
 
 This is **the job**. The API creates it instantly and returns its id; the agent
 fills it in later from a background task. The client polls this row until
@@ -131,7 +142,8 @@ Open the **Table Editor**. You should see `runs`, `steps`, and `memories`.
 Then restart your server and check [http://localhost:8000/health](http://localhost:8000/health):
 
 ```json
-{"ok": true, "database": true, "model": "gemini-flash-latest"}
+{"ok": true, "database": true, "provider": "google",
+ "model": "gemini-flash-latest", "web_search": false}
 ```
 
 `database` is now `true` — it was `false` before, because there was nothing to

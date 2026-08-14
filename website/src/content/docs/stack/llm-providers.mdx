@@ -29,7 +29,7 @@ curl https://<your-service>/health
 ```
 
 ```json
-{"ok": true, "database": true, "provider": "openrouter", "model": "..."}
+{"ok": true, "database": true, "provider": "openrouter", "model": "...", "web_search": false}
 ```
 
 `/health` reports the provider precisely so you can tell a deployed service is
@@ -195,7 +195,7 @@ every provider gets it — if you add a fifth branch, pass it along.
 ### `/health` is how you check
 
 ```json
-{"ok": true, "database": true, "provider": "openrouter", "model": "..."}
+{"ok": true, "database": true, "provider": "openrouter", "model": "...", "web_search": false}
 ```
 
 Environment changes need a redeploy to take effect. If `/health` still reports

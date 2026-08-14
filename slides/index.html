@@ -931,12 +931,13 @@
         <pre
           class="sm"
         ><span class="c">// 1. hand over the job — comes back immediately</span>
-<span class="k">const</span> runId = <span class="k">await</span> <span class="f">createRun</span>(baseUrl, query, signal);
+<span class="k">const</span> { run_id, thread_id } = <span class="k">await</span> <span class="f">createRun</span>(baseUrl, query, threadId, signal);
+<span class="f">rememberThread</span>(thread_id);              <span class="c">// ← the entire memory feature</span>
 
 <span class="c">// 2. ask "done yet?" until it settles</span>
 <span class="hl"><span class="k">for</span> (;;) {
   <span class="k">await</span> <span class="f">sleep</span>(<span class="n">1500</span>, signal);
-  <span class="k">const</span> { run, steps } = <span class="k">await</span> <span class="f">readRun</span>(baseUrl, runId, signal);
+  <span class="k">const</span> { run, steps } = <span class="k">await</span> <span class="f">readRun</span>(baseUrl, run_id, signal);
 
   <span class="f">setSteps</span>(steps);                        <span class="c">// live progress UI</span>
   <span class="k">if</span> (run.status !== <span class="s">"running"</span>) <span class="k">return</span> <span class="f">finish</span>(run);
@@ -963,6 +964,12 @@
             <li>
               1.5s is a judgement call: fast enough to feel live, slow enough
               not to hammer a small server.
+            </li>
+            <li>
+              <b>The client's whole share of "memory" is that one line.</b> Keep
+              the <code>thread_id</code>, send it with the next question. The
+              history never comes near the browser — which is why reloading the
+              page doesn't lose the conversation.
             </li>
           </ul>
         </div>
@@ -1241,7 +1248,8 @@ LLM_API_KEY=</pre>
             </p>
             <p><strong>Dies with the run.</strong> Belongs to the job.</p>
             <p class="small">
-              → our <code>runs</code> and <code>steps</code> tables
+              → our <code>runs.messages</code> column and <code>steps</code>
+              table
             </p>
           </div>
           <div class="card good">
@@ -1269,6 +1277,12 @@ LLM_API_KEY=</pre>
               memory. "Remember this user is studying mechanical engineering" is
               long-term.
             </li>
+            <li>
+              Demo beat: ask a question, then just ask "why is that?" — it works
+              because <code>thread_id</code> reloads the conversation and replays
+              it to the model. Then reload the page: still there, because it was
+              never in the browser.
+            </li>
           </ul>
         </div>
       </section>
@@ -1278,9 +1292,11 @@ LLM_API_KEY=</pre>
         <h2>Two tables, that's it</h2>
         <pre class="sm"><span class="k">create table</span> runs (
   id         uuid <span class="k">primary key default</span> gen_random_uuid(),
+  thread_id  uuid <span class="k">not null default</span> gen_random_uuid(), <span class="c">-- the conversation</span>
   query      text <span class="k">not null</span>,
   status     text <span class="k">not null default</span> <span class="s">'queued'</span>,  <span class="c">-- queued|running|done|error</span>
   result     text,
+  messages   jsonb,                            <span class="c">-- memory, for the model</span>
   created_at timestamptz <span class="k">default</span> now()
 );
 
@@ -1301,6 +1317,13 @@ LLM_API_KEY=</pre>
             <li>
               <code>on delete cascade</code>: delete a run, its steps go too.
               One less thing to clean up.
+            </li>
+            <li>
+              <b>One question is one run; a conversation is several runs sharing
+              a <code>thread_id</code>.</b> <code>messages</code> is that
+              conversation in the shape the model wants it back — load it, pass
+              it to <code>.run()</code>, save it again. That's the whole of "the
+              agent remembers", and it's a column, not a feature.
             </li>
           </ul>
         </div>

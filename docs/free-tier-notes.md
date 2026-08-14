@@ -30,6 +30,7 @@ pedantry — it teaches the room that these numbers expire, which is the actual 
 | "Vercel can't run this" | 🟡 Needs the precise version | It runs FastAPI fine. What it can't safely do is **background work after the response** — `waitUntil` is still bounded by the function's timeout. Say *"CPU is rented per request"*, not *"Vercel is limited"*. The number moves; the shape doesn't. |
 | "`BackgroundTasks` is production-ready" | 🔴 Say the limitation yourself | It lives **inside your server process**, so a deploy, a crash, or a free-tier recycle loses the run and the row sits at `running` forever. Raise it **after** the room has seen the pattern work, not before — presented first it's a caveat, presented second it's the next thing to build. The cheap fix (mark runs stale after 10 min) is one slide; a real task queue with a separate worker is the honest answer. |
 | "FastAPI Cloud is a drop-in second host" | 🟡 True, with a beta asterisk | It genuinely takes two minutes — **create app from GitHub, Root Directory `app`, done** — and it needs no config file because it reads `pyproject.toml`, `uv.lock` and `.python-version`. But it's a **public beta**, Hobby is 0.1 vCPU / 512 MB, and **scale-to-zero is on by default**. Don't claim background tasks are unaffected by scale-to-zero unless you've measured it — run a job, close the tab, poll a minute later. |
+| "The agent can answer questions about today" | 🟡 Only with a Tavily key | Wikipedia is written *after* the fact, so out of the box the agent genuinely cannot answer "what happened this week" — and without `TAVILY_API_KEY` it should say so rather than guess. With the key it reaches Tavily's **hosted MCP server**, which is also the session's only example of being an MCP *client* rather than a server. Free tier is a monthly credit allowance, so treat it as a demo budget, not a load test. |
 | "Deploy the client to Vercel too" | 🟢 Stable, and a good bonus | Static bundle, free, no card, two fields (**Root Directory `client`**, `VITE_API_URL`). Worth doing live because a second frontend origin makes `ALLOWED_ORIGINS` concrete. Be clear this is **not** where the agent goes — Vercel functions are request-scoped. |
 
 ---
@@ -47,6 +48,7 @@ pedantry — it teaches the room that these numbers expire, which is the actual 
 | 🟡 Groq | RPM vs TPM on the free tier | <https://console.groq.com/docs/rate-limits> |
 | 🔴 OpenRouter | Which models are still `:free`, and their throttle | <https://openrouter.ai/models?max_price=0> |
 | 🔴 Cerebras | Free-tier limits and current model names | <https://cloud.cerebras.ai> |
+| 🟡 Tavily | Monthly free credit allowance, and that `tavily_search` is still the tool name on their MCP server | <https://app.tavily.com> |
 | 🔴 All providers | The current shape of the free-LLM landscape | <https://github.com/cheahjs/free-llm-api-resources> |
 | 🟢 GitHub Pages | Soft bandwidth/build limits | <https://docs.github.com/pages/getting-started-with-github-pages/about-github-pages> |
 | 🟡 HF Spaces | Free CPU hardware and the idle-sleep window | <https://huggingface.co/docs/hub/spaces-overview> |

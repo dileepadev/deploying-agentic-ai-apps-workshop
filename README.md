@@ -24,6 +24,11 @@ POST /runs        →  202 {"run_id": "abc"}        ~200 ms, always
 GET  /runs/abc    →  {status, steps[]}            client polls every 1.5 s
 ```
 
+The demo agent researches with Wikipedia, searches the live web through
+[Tavily's MCP server](website/src/content/docs/learn/mcp.mdx) when you give it a
+key, and holds a **conversation** — ask a follow-up and it remembers, because the
+history lives in Postgres rather than in the browser tab.
+
 ## Start here
 
 | If you… | Go to |
@@ -39,7 +44,10 @@ can go from nothing to a deployed agent on their own.
 ## Quick start
 
 You'll need a free [Gemini API key](https://aistudio.google.com/apikey) and a
-free [Supabase](https://supabase.com) project.
+free [Supabase](https://supabase.com) project. A free
+[Tavily key](https://app.tavily.com) is optional — it adds web search, so the
+agent can answer questions about recent events instead of only what Wikipedia
+has written up.
 
 > [!IMPORTANT]
 > Never commit your API key or database credentials. Use `.env` and `.gitignore`.
@@ -62,6 +70,7 @@ uv run fastapi dev main.py
 ```
 
 Check <http://localhost:8000/health> — you want `{"ok": true, "database": true}`.
+It also names the provider and model answering, and whether web search is on.
 
 Then start the client, in a second terminal from the repo root:
 
@@ -79,7 +88,7 @@ Open <http://localhost:5173>, ask a question, and watch the steps appear.
 ### Other useful commands
 
 ```bash
-cd app && uv run --extra dev pytest                # 17 tests, no keys or network needed
+cd app && uv run --extra dev pytest                # 37 tests, no keys or network needed
 cd client && npm run build                         # type-check + build the client
 cd website && npm install && npm run dev           # the workshop website, locally
 cd app && uv run python -m agent.manual_loop "..."  # the agent, no framework, from the CLI
@@ -94,12 +103,13 @@ cd app && uv run fastmcp dev tools/server.py        # poke the MCP tools in the 
 │   ├── main.py           the API — /runs vs /runs/naive is the whole lesson
 │   ├── agent/            the agent, plus the same loop written by hand
 │   ├── tools/            the tools, and the same tools over MCP
-│   ├── tests/            17 tests that need no API key
+│   ├── tests/            37 tests that need no API key
 │   └── http/             ready-made requests for driving the API by hand
 ├── client/               the client — Vite + React + TypeScript
 │   └── src/
-│       ├── api.ts        the three HTTP calls — the whole backend contract
-│       └── useRun.ts     accept-and-poll as a hook, with cancellation
+│       ├── api.ts        the five HTTP calls — the whole backend contract
+│       ├── useConversation.ts  accept-and-poll + threads, with cancellation
+│       └── useHealth.ts  which model is answering, from /health
 ├── database/schema.sql   three tables
 ├── deploy/               Render blueprint — the only platform-specific file
 ├── slides/               the deck

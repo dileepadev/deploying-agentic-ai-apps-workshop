@@ -42,6 +42,12 @@ POST /runs        →  202 {"run_id": "abc"}        ~200 ms, always
 GET  /runs/abc    →  {status, steps[]}            client polls every 1.5 s
 ```
 
+The agent you'll deploy researches with Wikipedia, searches the live web through
+[Tavily's MCP server](learn/mcp/#the-other-direction-someone-elses-server), and
+holds a [conversation](learn/memory/#working-memory-actually-built) — ask a
+follow-up and it remembers, because the history lives in Postgres rather than in
+the browser tab.
+
 <div class="resume" data-resume></div>
 
 ## Where to start

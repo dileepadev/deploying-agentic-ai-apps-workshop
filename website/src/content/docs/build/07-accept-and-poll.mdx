@@ -29,12 +29,17 @@ deployment. If you remember one thing:
 ```python title="app/main.py" hl_lines="7"
 @app.post("/runs", status_code=202)
 async def create_run(body: RunRequest, background: BackgroundTasks):
-    run_id = await db.create_run(body.query)
+    run = await db.create_run(body.query, body.thread_id)
 
     # Queue the slow work to run AFTER this response has been sent.
-    background.add_task(research.run_agent, run_id, body.query)
+    background.add_task(research.run_agent, run["id"], body.query, run["thread_id"])
 
-    return {"run_id": run_id, "status": "queued", "poll": f"/runs/{run_id}"}
+    return {
+        "run_id": run["id"],
+        "thread_id": run["thread_id"],   # send it back to continue the conversation
+        "status": "queued",
+        "poll": f"/runs/{run['id']}",
+    }
 ```
 
 - `202 Accepted` is the honest status code: *"I have taken your request, I have
@@ -58,17 +63,17 @@ async def read_run(run_id: str):
 
 ## The client side
 
-```tsx title="client/src/useRun.ts"
+```tsx title="client/src/useConversation.ts"
 // 1. Hand over the job. Comes back immediately with an id.
-const runId = await createRun(baseUrl, query, signal);
+const created = await createRun(baseUrl, question, threadId, signal);
+rememberThread(created.thread_id);          // ← how the next question continues
 
 // 2. Ask "done yet?" until it settles.
 for (;;) {
   await sleep(POLL_MS, signal);
-  const { run, steps } = await readRun(baseUrl, runId, signal);
+  const { run, steps } = await readRun(baseUrl, created.run_id, signal);
 
-  setStatus(run.status);
-  setSteps(steps);                          // ← the live progress
+  patch({ status: run.status, steps });     // ← the live progress
 
   if (run.status === "done" || run.status === "error") {
     finish(run);
@@ -141,7 +146,8 @@ is the most persuasive thing in this whole project.
 The POST returns immediately:
 
 ```json
-{"run_id": "3f2a...", "status": "queued", "poll": "/runs/3f2a..."}
+{"run_id": "3f2a...", "thread_id": "9c71...", "status": "queued",
+ "poll": "/runs/3f2a..."}
 ```
 
 Steps appear one at a time over the next 30–60 seconds, then the answer.
@@ -152,9 +158,15 @@ Check it from the command line too:
 curl -X POST http://localhost:8000/runs \
   -H 'Content-Type: application/json' \
   -d '{"query":"how do solar panels actually work?"}'
-# {"run_id":"3f2a...","status":"queued","poll":"/runs/3f2a..."}
+# {"run_id":"3f2a...","thread_id":"9c71...","status":"queued","poll":"/runs/3f2a..."}
 
 curl http://localhost:8000/runs/3f2a...
+
+# Ask a follow-up in the same conversation. "why is that?" only means something
+# because thread_id tells the server which history to replay to the model.
+curl -X POST http://localhost:8000/runs \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"why is that?","thread_id":"9c71..."}'
 ```
 
 **Then open the Supabase table editor and look at `steps`.** The rows are right

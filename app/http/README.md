@@ -5,7 +5,7 @@ agent without writing a client or leaving the editor.
 
 | File | What it covers |
 | --- | --- |
-| [api.http](api.http) | The REST API — health, the accept-and-poll flow, the naive endpoint, the guardrails |
+| [api.http](api.http) | The REST API — health, the accept-and-poll flow, follow-up questions and threads, the naive endpoint, the guardrails |
 | [mcp.http](mcp.http) | The MCP server at `/mcp` — handshake, `tools/list`, calling each tool |
 
 These are **not** the test suite. `uv run --extra dev pytest` is the test suite,

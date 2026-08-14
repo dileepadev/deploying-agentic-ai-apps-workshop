@@ -18,7 +18,7 @@ mean by that word — and confusing them causes most agent memory bugs.
 |---|---|---|
 | Lives for | one run | forever |
 | Contains | this conversation, tool results | facts, documents, past runs |
-| In our project | the `runs` and `steps` tables | the `memories` table |
+| In our project | `runs.messages` and the `steps` table | the `memories` table |
 | Grows | fast, within a run | slowly, across runs |
 | Problem it has | fills the context window | finding the relevant bit |
 
@@ -27,10 +27,11 @@ this, I searched that, here's what came back" that gets re-sent on every turn.
 It's what makes turn six aware of turn one. Its problem is size: it grows every
 turn, and the context window is finite.
 
-Our `steps` table is exactly this, with a bonus. Because we write it to a
-database instead of holding it in RAM, the UI can read the agent's progress
-while it's still running, and a crashed run leaves evidence behind. Same data,
-two jobs.
+Our project keeps this twice, on purpose. `runs.messages` is the version the
+*model* sees — every question, tool call and result, in the shape it expects back.
+The `steps` table is the same story told for *humans*, and because it's in a
+database rather than in RAM, the UI can read the agent's progress while it's
+still running and a crashed run leaves evidence behind.
 
 **Long-term memory** is anything that should outlive the run — your documents,
 your notes, what happened last week. Its problem is the opposite one: you have
@@ -115,16 +116,48 @@ handed the results over without being asked.
 Most real systems use both — RAG for the context you know they'll need, tools
 for the things only the model can decide it wants.
 
-## How we use this in the demo
+## Working memory, actually built
 
-Honestly: **lightly, and that's a deliberate choice.**
+The demo has a conversation in it, and the whole of "the agent remembers" is two
+database round trips. Ask a question, then ask **"why is that?"** — a phrase that
+means nothing on its own. It works because the server reloads the conversation
+and replays it to the model, which remembers nothing by itself:
 
-- `runs` and `steps` are working memory, and they're doing real work — they're
-  what makes the live progress UI possible, and they're what
-  [page 7](../deployment-problem/) is about to build on.
-- `memories` and pgvector are set up in the schema and left as your extension
-  point. The workshop is about deployment, and a full RAG pipeline is a session
-  of its own.
+```python title="app/agent/research.py"
+history = await db.get_thread_messages(thread_id)      # load it
+
+result = await agent.run(query, message_history=history, ...)
+
+await db.update_run(                                    # save it back
+    run_id, status="done", result=result.output,
+    messages=to_jsonable_python(result.all_messages()),
+)
+```
+
+`all_messages()` is the conversation from its very first question — every
+question, tool call, tool result and answer — so the newest run in a thread
+always holds the whole of it, and resuming is a one-row read.
+
+Three things worth taking from that:
+
+**Memory is a column, not a feature.** One run is one question; a *conversation*
+is several runs sharing a `thread_id`. Nothing about the agent changed.
+
+**The browser holds none of it.** The client's entire share is: keep the
+`thread_id` you were handed, send it with the next question. Which is why
+reloading the page doesn't lose your conversation — it was never in the tab.
+`GET /threads/{id}` reads it back out of Postgres.
+
+**It has to be capped.** Every turn re-sends the whole history, so a thread gets
+more expensive per question the longer it runs, and eventually stops fitting in
+the context window at all. That's the "grows fast" row of the table above,
+arriving in person. `MAX_THREAD_TURNS` turns it into a 409 that says *start a new
+conversation*, which beats a run that dies three minutes in with a token error.
+
+## What we left as your extension point
+
+`memories` and pgvector are set up in the schema and go no further. The workshop
+is about deployment, and a full RAG pipeline is a session of its own.
 
 If you want to go further: embed your documents, store the vectors, and add a
 `search_memory` tool. Notice that the agent loop doesn't change at all — you're
@@ -134,7 +167,8 @@ just giving it one more door, exactly as [page 3](../tool-calling/) described.
 <code>database/schema.sql</code> — all three tables, with the dimension warning
 in place.<br />
 <code>app/db.py</code> — <code>add_step()</code> is working memory in four
-lines.
+lines; <code>get_thread_messages()</code> is the conversation in ten.<br />
+<code>app/agent/research.py</code> — load, run, save.
 </div>
 
 ---

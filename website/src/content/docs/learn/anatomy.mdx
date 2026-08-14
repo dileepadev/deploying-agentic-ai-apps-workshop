@@ -43,8 +43,8 @@ Every agent, in every framework, is some arrangement of these:
 |---|---|---|
 | 🧠 **Model** | Decides what to do next. Can only produce text. | `build_model()` in `app/agent/research.py` |
 | 📋 **Instructions** | The job description you give it, once. | `INSTRUCTIONS` in `app/agent/research.py` |
-| 🔧 **Tools** | The functions it's allowed to ask for. | `app/tools/wikipedia.py` |
-| 🗒️ **Memory** | Everything it's allowed to still know. | the conversation, plus the `steps` table |
+| 🔧 **Tools** | The functions it's allowed to ask for. | `app/tools/wikipedia.py`, plus `tavily_search` over MCP |
+| 🗒️ **Memory** | Everything it's allowed to still know. | the `runs.messages` column, plus the `steps` table |
 | ⚙️ **Loop** | Your code, calling the model over and over. | Pydantic AI's `agent.run()` |
 | 🛑 **Limits** | What makes it stop, whatever it thinks. | the ceiling in `app/agent/steps.py` |
 
@@ -112,6 +112,11 @@ original question, every tool the model asked for, every result it got back.
 That's why the table on page 1 said each agent run costs 5–10 calls "each
 carrying the whole history". Turn six is paying for turns one through five all
 over again.
+
+In this project you can watch that happen. Ask a question, then ask *"why is
+that?"* — a phrase with no meaning on its own. It works because the server loads
+the previous conversation out of Postgres and hands it back to the model, which
+arrived knowing nothing.
 
 **Going deeper:** [page 5, Memory and RAG](../memory/) splits this into memory
 that lasts one run and memory that outlives it — and explains why our project

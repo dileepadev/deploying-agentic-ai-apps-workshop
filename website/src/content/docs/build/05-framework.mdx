@@ -66,21 +66,42 @@ looks like; the model decides how to get there.
 ## Running it
 
 ```python title="app/agent/research.py"
-async def run_agent(run_id: str, query: str) -> None:
+async def run_agent(run_id: str, query: str, thread_id: str) -> None:
     steps = StepLogger(run_id)
     try:
-        await db.update_run(run_id, status="running")
+        await db.update_run(run_id, status="running",
+                            provider=config.LLM_PROVIDER, model=config.LLM_MODEL)
+
+        history = await _history(thread_id)          # ← the conversation so far
         await steps.log("Planning the research", "Working out what to look up")
 
-        result = await agent.run(query, model=build_model(), deps=Deps(steps=steps))
+        web_search = build_web_search()              # ← Tavily's MCP server, or None
+        result = await agent.run(
+            query, model=build_model(), deps=Deps(steps=steps),
+            message_history=history,
+            toolsets=[web_search] if web_search else [],
+        )
 
         await steps.log("Saving the result", "Done")
-        await db.update_run(run_id, status="done", result=result.output)
+        await db.update_run(run_id, status="done", result=result.output,
+                            messages=to_jsonable_python(result.all_messages()))
 
     except Exception as exc:
         message = f"{type(exc).__name__}: {exc}"
         await db.update_run(run_id, status="error", error=message)   # ← always
 ```
+
+Three of those arguments are worth naming, because they're the difference
+between a question box and an agent you can talk to:
+
+- **`message_history`** is memory. The model remembers nothing, so every turn
+  re-sends the conversation — loaded from `runs.messages`, saved back after. See
+  [Learn · Memory](../../learn/memory/#working-memory-actually-built).
+- **`toolsets`** is where web search arrives from, as a connection to Tavily's
+  hosted MCP server rather than code we wrote. Unset key, empty list, Wikipedia
+  only. See [Learn · MCP](../../learn/mcp/#the-other-direction-someone-elses-server).
+- **`provider` and `model`** are stamped *before* the work, so a run that fails
+  still says which model it failed on.
 
 **Always record the failure.** A run that dies silently looks *identical* to a
 run that is merely slow, and you do not want to be telling those apart in front

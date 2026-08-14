@@ -76,19 +76,35 @@ This room has people who have never deployed anything. Non-negotiables:
    silence.**
 4. **Set env vars in the Render dashboard**, show `.env` is gitignored, redeploy.
 5. **Hit `/health`.** Two seconds, proves it's alive, teaches them why that endpoint
-   exists.
+   exists. It also names the provider and model — point at the connection strip in
+   the client showing the same thing, so "which model am I talking to?" is never a
+   dashboard question.
 6. **Submit a real query from the UI.** Steps appear one by one: planning → searching
    → reading → synthesizing → saving.
 7. **Switch to the Supabase table editor and refresh `steps`.** The rows are right
    there. **This is the moment it clicks for people** — the UI is just rendering
    database rows. Leave it on screen for a beat.
-8. **Show CORS** by pointing the GitHub Pages client at the Render URL. Cross-origin
+8. **Ask a follow-up: just type "why is that?"** (15 seconds). A phrase that means
+   nothing on its own. It works because `thread_id` reloads the conversation and
+   replays it to the model — and notice the step log says *Recalling the
+   conversation* with no new searches, because it already had the context.
+   **Then reload the page.** The conversation is still there, because it was never
+   in the browser: it's a `messages` column in `runs`. Two beats, both cheap, and
+   together they make "models are stateless" concrete instead of a claim on a slide.
+9. **Show CORS** by pointing the GitHub Pages client at the Render URL. Cross-origin
    for real, so the fix is real.
 
 ### If you have time left (and only then)
 
-Both of these are **cuttable**. The lesson has landed by step 8; these two just show
-how little of it is tied to one platform.
+All of these are **cuttable**. The lesson has landed by step 9; they just show how
+little of it is tied to one platform.
+
+- **Ask it something from this week (1 min).** Needs `TAVILY_API_KEY` set — check
+  `web_search: true` on `/health` first. The step log shows *Searching the web*, and
+  the point to say out loud is that **we didn't write that tool**: it comes from
+  Tavily's hosted MCP server, so this app is an MCP client as well as an MCP server.
+  Cut it instantly if the key isn't working — the agent will say it can't check
+  current information, which is the correct behaviour but a flat demo moment.
 
 - **The same agent on FastAPI Cloud (2 min).** Create app from GitHub, Root Directory
   `app`, done — no build command, no start command, no config file. The point to say
@@ -155,7 +171,7 @@ steps. Mention it, don't demo it.
 2. **pgvector live demo** → slides only; the code stays in the repo as a bonus
 3. **The `BackgroundTasks` limitation** → one slide as "the upgrade path", no demo
 4. **SSE** → one line: *"polling today, SSE when you outgrow it"*
-5. **Reading `useRun.ts` line by line** → show the running client instead, and say
+5. **Reading `useConversation.ts` line by line** → show the running client instead, and say
    the one sentence that matters: the fetch calls are identical in any framework,
    the cancellation around them is what people get wrong
 

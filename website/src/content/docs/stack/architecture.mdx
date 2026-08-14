@@ -23,6 +23,7 @@ import Mermaid from "../../../components/Mermaid.astro";
         DB[("Supabase Postgres<br />runs · steps · memories")]
         GEM["Gemini API"]
         WIKI["Wikipedia API"]
+        TAV["Tavily MCP server<br />(hosted by them)"]
     end
 
     CLAUDE["Claude Desktop<br />or any MCP client"]
@@ -37,7 +38,13 @@ import Mermaid from "../../../components/Mermaid.astro";
     API -->|"read run + steps"| DB
     TOOLS --> WIKI
     MCP --> TOOLS
-    CLAUDE -->|"MCP protocol"| MCP`} />
+    CLAUDE -->|"MCP protocol"| MCP
+    AGENT -->|"MCP protocol"| TAV`} />
+
+Note the two MCP arrows, pointing opposite ways. On the left, someone else's
+client calls **our** server. On the right, **our** agent calls someone else's.
+Same protocol, both ends — see
+[Learn · MCP](../../learn/mcp/#the-other-direction-someone-elses-server).
 
 ## The request that matters
 
@@ -49,13 +56,14 @@ What happens when you ask a question, in order:
     participant D as Postgres
     participant G as Agent
 
-    B->>A: POST /runs {"query": "..."}
+    B->>A: POST /runs {"query": "...", "thread_id": "..."}
     A->>D: INSERT runs (status=queued)
-    D-->>A: run_id
-    A-->>B: 202 {"run_id"}  ← ~200ms, connection closes
+    D-->>A: run_id + thread_id
+    A-->>B: 202 {"run_id", "thread_id"}  ← ~200ms, connection closes
     Note over A,G: everything below happens after the response
 
     A->>G: BackgroundTasks
+    G->>D: SELECT messages (the conversation so far)
     G->>D: INSERT steps (Planning…)
     B->>A: GET /runs/{id}
     A->>D: SELECT run, steps
@@ -65,7 +73,7 @@ What happens when you ask a question, in order:
     B->>A: GET /runs/{id}
     A-->>B: {status: running, steps: [1,2]}
 
-    G->>D: UPDATE runs (status=done, result)
+    G->>D: UPDATE runs (status=done, result, messages)
     B->>A: GET /runs/{id}
     A-->>B: {status: done, result: "..."}`} />
 
@@ -125,12 +133,13 @@ deploying-agentic-ai-apps-workshop/
 │   ├── tools/
 │   │   ├── wikipedia.py     the tools themselves
 │   │   └── server.py        the same tools, over MCP
-│   ├── tests/               12 tests, no network or keys needed
+│   ├── tests/               37 tests, no network or keys needed
 │   └── http/                ready-made requests for driving the API by hand
 ├── client/                  the client — Vite + React + TypeScript
 │   └── src/
-│       ├── api.ts           the three HTTP calls
-│       └── useRun.ts        accept-and-poll, with cancellation
+│       ├── api.ts           the five HTTP calls
+│       ├── useConversation.ts  accept-and-poll + threads
+│       └── useHealth.ts     which model is answering
 ├── database/schema.sql      three tables
 ├── deploy/render.yaml       infrastructure as a file
 ├── slides/                  the presentation deck
@@ -154,6 +163,6 @@ table editor.
 its own `package.json`. A hand-written HTML file would be shorter, but it would
 quietly skip the part that actually breaks: cancelling the poll loop when the
 component unmounts, and not stacking requests when a cold server is slow to
-answer. Those live in `client/src/useRun.ts`. The three fetch calls next door in
+answer. Those live in `client/src/useConversation.ts`. The fetch calls next door in
 `api.ts` are identical from Vue, Flutter, or curl — it's the code around them
 that's worth reading.
