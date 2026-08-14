@@ -90,6 +90,10 @@ export default defineConfig({
             { label: "Agent · FastAPI Cloud", slug: "deploy/fastapi-cloud" },
             { label: "Client · Vercel & Pages", slug: "deploy/client" },
             { label: "Other hosts", slug: "deploy/alternatives" },
+            {
+              label: "Naming GitHub deployments",
+              slug: "deploy/github-deployments",
+            },
             { label: "Troubleshooting", slug: "deploy/troubleshooting" },
           ],
         },

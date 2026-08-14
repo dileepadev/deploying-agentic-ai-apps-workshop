@@ -1,0 +1,86 @@
+name: Deploy agent to FastAPI Cloud
+
+# Same reason as .github/workflows/deploy-vercel.yml: the FastAPI Cloud GitHub
+# App deploys on every push to the default branch, but it names its GitHub
+# deployment "Production – <repo>", which says nothing about which of the two
+# providers it is. Deploying from here lets `environment.name` below say
+# "Production – FastAPI" instead.
+#
+# Disconnect the repo first — FastAPI Cloud → App → Settings → Source
+# Repository → Disconnect — or each push deploys twice under two names.
+#
+# The CLI is already in the dependency tree: `fastapi[standard]` pulls in
+# fastapi-cloud-cli, which is why `uv run fastapi deploy` works here with no
+# extra install, exactly as it does on your own machine.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/deploy-fastapi-cloud.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fastapi-cloud
+  # No cancel-in-progress here, unlike the Vercel workflow: a cancelled run
+  # would kill an upload halfway through rather than superseding it cleanly.
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # As in the Vercel workflow — only this repo has the deploy token, and a
+    # fork shouldn't fail a build for a deploy it was never set up to do.
+    if: github.repository == 'dileepadev/deploying-agentic-ai-apps-workshop'
+
+    runs-on: ubuntu-latest
+
+    # The label GitHub shows under Deployments. Must match an environment in
+    # Settings → Environments exactly; environments cannot be renamed.
+    environment:
+      name: "Production – FastAPI"
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned to an exact patch, unlike the actions/* above: setup-uv stopped
+      # publishing a floating major tag after v7, so `@v10` resolves to nothing.
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: app/uv.lock
+
+      - name: Deploy to FastAPI Cloud
+        id: deploy
+        working-directory: app
+        env:
+          # A deploy token, not a personal login — created at App → Deploy
+          # Tokens, and the reason this doesn't need `fastapi login`. The app ID
+          # replaces the interactive team/app picker.
+          FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}
+          FASTAPI_CLOUD_APP_ID: ${{ secrets.FASTAPI_CLOUD_APP_ID }}
+        # Run from app/, because that's where the uv project is and the CLI
+        # uploads the directory it's standing in — the same reason the docs tell
+        # you to cd there by hand.
+        #
+        # No `--json`: it implies --no-wait, so the step would go green on a
+        # successful *upload* and never notice the build failing a minute later.
+        # Waiting is the whole value of a deployment record. On failure the CLI
+        # exits 1, and pipefail carries that through `tee`.
+        #
+        # The log goes to RUNNER_TEMP, not app/, so it can't land inside the
+        # directory being uploaded. The URL is scraped back out of the CLI's own
+        # "Your app is ready at ..." line purely to fill in the "View deployment"
+        # link — `|| true` keeps a reworded message from failing a good deploy.
+        run: |
+          set -euo pipefail
+          uv run fastapi deploy 2>&1 | tee "$RUNNER_TEMP/deploy.log"
+          url=$(grep -m1 'Your app is ready at' "$RUNNER_TEMP/deploy.log" \
+            | grep -oE 'https://[A-Za-z0-9._~:/?#@!$&*+,;=%-]+' \
+            | head -1 || true)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed to ${url:-FastAPI Cloud}" >> "$GITHUB_STEP_SUMMARY"

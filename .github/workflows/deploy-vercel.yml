@@ -1,0 +1,81 @@
+name: Deploy client to Vercel
+
+# Why this file exists, when Vercel's own GitHub integration already worked:
+#
+# The integration deploys fine — but it names its GitHub deployment "Production"
+# and nothing on Vercel's side can change that. With two providers shipping from
+# this one repo, the Deployments list read "Production" and "Production –
+# deploying-agentic-ai-apps-workshop", and neither name told you which was the
+# client. GitHub can't rename an environment after it exists either, so owning
+# the deploy here is the only way to pick the label: see `environment.name`.
+#
+# Turn the integration off first — Vercel → Project → Settings → Git →
+# Disconnect — or every push to main deploys twice, once under each name.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "client/**"
+      - ".github/workflows/deploy-vercel.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # Only this repo holds the Vercel credentials. Attendees who fork connect
+    # their own Vercel project through the dashboard instead (see the "Deploy
+    # the client" page), and shouldn't collect a red X on every push for a
+    # deploy they never set up. Change the owner here if you want yours to run.
+    if: github.repository == 'dileepadev/deploying-agentic-ai-apps-workshop'
+
+    runs-on: ubuntu-latest
+
+    # This block is the whole point of the file: `name` is the label GitHub
+    # shows under Deployments. It has to match an environment in
+    # Settings → Environments exactly, and environments cannot be renamed —
+    # editing this string means creating a new one and retiring the old.
+    environment:
+      name: "Production – Vercel"
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - run: npm install --global vercel@latest
+
+      - name: Deploy to Vercel
+        id: deploy
+        env:
+          # Not a linked checkout, so the CLI takes the project from the
+          # environment instead of a .vercel/ directory.
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        # Run from the repo root, not from client/. This is a remote build, so
+        # Vercel applies the project's own Root Directory setting (`client`) to
+        # whatever we upload — exactly as it did for the Git integration. Upload
+        # client/ instead and it would look for client/client and find nothing.
+        #
+        # Building remotely also keeps VITE_API_URL where it already lives, in
+        # Vercel's environment panel, rather than duplicating it as a repo
+        # secret. Vite inlines it at build time, so it has to be set wherever
+        # the build runs.
+        #
+        # `vercel deploy` writes progress to stderr and the deployment URL to
+        # stdout, so $() captures the URL and nothing else.
+        run: |
+          set -euo pipefail
+          url=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed to $url" >> "$GITHUB_STEP_SUMMARY"
