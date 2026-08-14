@@ -1,0 +1,235 @@
+---
+title: Other hosts
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+[Render](../render/) is the primary path and [FastAPI Cloud](../fastapi-cloud/)
+is the second. Neither is special — nothing in `app/` knows which platform it's
+on. This page is the wider map, and more usefully, the **one test** to apply to
+any host you're considering.
+
+## The question that decides everything
+
+This project depends on work continuing *after* the HTTP response is sent. So:
+
+> **Does my code still get CPU after it has returned a response?**
+
+Ask that first. Free tiers, cold starts, and dashboards are details; this one
+answers whether the architecture works at all. Hosts fall into three families.
+
+| Family | Examples | `BackgroundTasks` works? |
+|---|---|---|
+| **Long-lived process** — a container that stays running between requests | Render, Fly.io, Koyeb, Railway, Hugging Face Spaces | **Yes.** This is what the workshop assumes |
+| **Request-scoped serverless** — CPU is allocated per invocation | Vercel, Netlify, AWS Lambda | **No, not safely.** Background work is capped by the function timeout |
+| **Durable execution** — steps are checkpointed to a database | DBOS, Temporal, Prefect | **Better than yes.** A crash *resumes* instead of restarting |
+
+Everything below is a variation on those three rows.
+
+## The map
+
+| Platform | Family | Free tier | Good for |
+|---|---|---|---|
+| [Render](../render/) | long-lived | yes, no card | **Primary.** Boring in the right way |
+| [FastAPI Cloud](../fastapi-cloud/) | long-lived (scale-to-zero) | yes, no card | One-command deploys; public beta |
+| [Hugging Face Spaces](#hugging-face-spaces) | long-lived | yes, no card | A public, shareable demo with a URL people trust |
+| [Fly.io](https://fly.io) / [Koyeb](https://www.koyeb.com) / [Railway](https://railway.com) | long-lived | varies, often needs a card | Regions, persistent disks, growing past free |
+| [Vercel](#vercel) | request-scoped | yes, no card | **The frontend.** See the caveat |
+| [DBOS](#dbos) | durable | library is open source | Making the background work survive a restart |
+| [GitHub Pages](../../stack/#github-pages) | static | yes | `client/index.html`, and making CORS real |
+
+<Aside type="tip" title="Deploy to two, on purpose">
+
+
+Shipping the same app to two platforms is one of the cheapest ways to learn
+deployment. You get a fallback URL for demo day, and comparing cold starts,
+logs, and build output between two hosts teaches you what's actually your
+code's fault.
+
+</Aside>
+
+## Hugging Face Spaces
+
+Free CPU hosting with a URL people already recognise. Use the **Docker** SDK —
+the Gradio and Static SDKs won't run a FastAPI app.
+
+Put this at the top of the Space's `README.md`:
+
+```yaml title="README.md"
+---
+title: Research Agent
+emoji: 🔎
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 8000
+---
+```
+
+`app_port` must match what your server binds. Spaces defaults to `7860`, so
+either set it as above or start uvicorn on 7860.
+
+```docker title="Dockerfile"
+FROM python:3.12
+
+RUN useradd -m -u 1000 user
+WORKDIR /app
+
+COPY --chown=user . /app
+RUN pip install uv && uv sync --frozen
+
+CMD ["uv", "run", "fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+Same rule as everywhere: bind `0.0.0.0`, never `127.0.0.1`.
+
+<Aside type="danger" title="Space repos are public by default">
+
+
+A Space is a git repo, and on the free tier it's typically public — including
+its history. Never commit `.env`. Secrets go in **Settings → Variables and
+secrets**, which is the same lesson as Render's environment panel with much
+higher stakes if you get it wrong.
+
+</Aside>
+
+**What it costs.** Free CPU hardware (`cpu-basic`), and Spaces sleep after a
+configurable idle period — same cold-start trade as Render. The filesystem is
+ephemeral; Hugging Face has retired its persistent storage add-on, so treat disk
+as scratch space and keep state in Supabase. That's already how this project
+works, so nothing changes.
+
+## Vercel
+
+Vercel runs FastAPI, and it will happily serve `/health`, `/docs`, and
+`/runs/naive`. The problem is the endpoint the whole workshop is about.
+
+You control the ceiling in `vercel.json`:
+
+```json title="vercel.json"
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app/main.py": { "maxDuration": 60 }
+  }
+}
+```
+
+And there's an API for work that outlives the response — `waitUntil()` — but
+read its documented behaviour carefully:
+
+> Promises passed to `waitUntil` are **subject to the function's overall
+> timeout.**
+
+So the wall doesn't disappear; it moves. A 40-second agent run under a 60-second
+cap works right up until the run that takes 70 seconds, and then it dies
+halfway with the run row stuck at `running`. That's a worse failure than the 504
+we started with, because it looks like it's working.
+
+<Aside type="caution" title="What to actually do with Vercel">
+
+
+Use it for the **frontend** — it's excellent at that, and it makes CORS just as
+real as GitHub Pages does.
+
+If you want the backend there too, the honest version is: keep the API on
+Vercel and move the agent to something that isn't request-scoped — a queue with
+a worker, or [DBOS](#dbos) below. Don't try to smuggle a 40-second loop into a
+serverless function.
+
+</Aside>
+
+This is the modern version of the old "Vercel has a 10-second limit" line. The
+number was raised and will move again. The *shape* of the constraint — CPU is
+rented per request — is the part that doesn't expire.
+
+## DBOS
+
+DBOS isn't a host in the same sense as the others. It's a **durable execution**
+library: you annotate your functions, and it checkpoints each step to Postgres.
+When the process dies mid-run, the workflow resumes from the last completed step
+instead of starting over.
+
+That directly fixes the limitation named in
+[Why deployment is hard](../../learn/deployment-problem/#the-catch-nobody-mentions):
+`BackgroundTasks` lives inside your server process, so a deploy or a free-tier
+recycle loses the run forever.
+
+The shape of the change:
+
+```python
+from dbos import DBOS
+
+@DBOS.step()
+async def search_wikipedia(query: str) -> list[str]:
+    ...
+
+@DBOS.workflow()
+async def run_agent(run_id: str, query: str) -> None:
+    ...
+
+@app.post("/runs", status_code=202)
+async def create_run(body: RunRequest):
+    run_id = await db.create_run(body.query)
+    DBOS.start_workflow(run_agent, run_id, body.query)   # was: background.add_task(...)
+    return {"run_id": run_id, "status": "queued"}
+```
+
+`DBOS.start_workflow` is a near drop-in for `background.add_task` — it returns
+immediately with a handle, and guarantees the workflow runs to completion. Your
+endpoints, your polling client, and your `steps` table are untouched.
+
+**What it needs that this project doesn't have yet:** a Postgres connection
+string. We talk to Supabase over its REST API precisely to avoid drivers, but
+DBOS needs a real connection for its checkpoints. Supabase gives you one under
+**Connect**, so it's an added variable rather than a new service:
+
+```python
+DBOS(config={"name": "research-agent", "system_database_url": os.environ["DBOS_SYSTEM_DATABASE_URL"]})
+DBOS.launch()
+```
+
+You can self-host this on Render — the library is open source and runs anywhere
+your app runs. DBOS also offers its own hosted cloud with a free tier; check
+[their pricing](https://www.dbos.dev/pricing) for current terms before depending
+on it.
+
+<Aside type="note" title="Pydantic AI supports this directly">
+
+
+Pydantic AI integrates with DBOS, Temporal, and Prefect for durable agent runs,
+so you don't hand-roll the checkpointing. Worth reading once you've felt the
+problem — which is the right order.
+
+</Aside>
+
+## Test it yourself, in two minutes
+
+Documentation about background execution is often vague. Measure instead:
+
+1. Deploy, then `POST /runs` with a real question.
+2. Close the tab. Wait a minute.
+3. `GET /runs/{id}`.
+
+**Steps kept appearing while nobody was polling?** The host gives your process
+CPU between requests — the architecture works.
+
+**Steps stalled and only resumed when you polled?** CPU is being allocated per
+request. Workable for a demo, but you now know exactly why it'll break, and it
+won't be a surprise at the worst moment.
+
+Write down what you measured. A number you observed beats a paragraph you read.
+
+## The honest summary
+
+> Portability isn't luck — it's a consequence of the app knowing nothing about
+> its host. The only file here that mentions Render is `deploy/render.yaml`.
+> Pick a host by asking whether your code runs after the response, not by
+> comparing free-tier tables that expire.
+
+## See also
+
+- [Render](../render/) — the primary path
+- [FastAPI Cloud](../fastapi-cloud/) — the second target
+- [Model providers](../../stack/llm-providers/) — the same idea, for the LLM
+- [Troubleshooting](../troubleshooting/) — when it doesn't work

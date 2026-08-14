@@ -9,7 +9,7 @@ The things that actually go wrong, in roughly the order people hit them.
 ## Local
 
 <details>
-<summary><code>RuntimeError: Missing environment variable: GEMINI_API_KEY</code></summary>
+<summary><code>RuntimeError: Missing environment variable: LLM_API_KEY</code></summary>
 
 
 Working as designed — config fails loudly at startup rather than
@@ -18,6 +18,8 @@ mysteriously at request time.
 - Is `.env` in `app/`?
 - Any quotes around the value? Don't quote them.
 - Deployed? Environment changes need a **redeploy** to take effect.
+- Following an older copy of this workshop? The variable was called
+  `GEMINI_API_KEY` — that name still works when `LLM_PROVIDER` is `google`.
 
 </details>
 
@@ -97,7 +99,7 @@ prevent it.
 
 
 Model names get retired and the error is unhelpfully generic. Check what's
-current at [https://aistudio.google.com](https://aistudio.google.com) and set `GEMINI_MODEL`.
+current at [https://aistudio.google.com](https://aistudio.google.com) and set `LLM_MODEL`.
 
 The default is `gemini-flash-latest`, an alias that shouldn't 404. If you
 pinned a specific version, that's almost certainly the cause.

@@ -24,6 +24,11 @@ pedantry — it teaches the room that these numbers expire, which is the actual 
 | "Supabase free tier" | 🟢 Verified 14 Aug 2026 | Free projects pause when database activity is too low across a **7-day window**; Supabase emails a warning first, then a confirmation. Manual **Resume project** to bring it back, and you have **90 days** before the backup is dropped. A few requests a day is enough to stay awake. Competition-critical: a paused project on judging day looks exactly like a broken project. **Say this twice.** |
 | "Supabase anon / service_role keys" | 🔴 Outdated naming | Supabase replaced them with **publishable** (`sb_publishable_…`) and **secret** (`sb_secret_…`) keys. Legacy keys still work until **end of 2026**, so the room will have a mix of both — say the role ("the one that bypasses RLS"), not just the name. Keys now live under **Settings → API Keys**; the project URL is behind the **Connect** button. |
 | "Groq for high-speed responses" | 🟡 Worth a contrast slide | Groq is superb for **short, fast turns**. But an agent carries a fat context — system prompt + tool schemas + full history — on *every* turn, so a token-per-minute budget drains far faster than a request-per-minute budget. Gemini's larger token budget suits long agent loops better. This framing survives whatever the current numbers are. |
+| "Gemini is the only free option" | 🔴 Not true, and someone will say so | Gemini is our **default**, not the only choice. Cerebras, OpenRouter and Groq all give keys without a card, and `LLM_PROVIDER` switches between them without a code change. Say *"the one I'd hand a room of 40 people"* and point at [Stack · Model providers](../website/src/content/docs/stack/llm-providers.mdx). Have [free-llm-api-resources](https://github.com/cheahjs/free-llm-api-resources) open in a tab. |
+| "Use GitHub Models, it's free with your GitHub account" | 🔴 **Dead.** Retired 30 July 2026 | Do not recommend it — the inference API no longer answers and Pydantic AI has deprecated the provider. It's a *great* five-second story though: it was the standard free recommendation for a year, and it's why every number in this deck carries a verification date. |
+| "If my key rate-limits, the demo is over" | 🟢 No longer true — rehearse it | Set `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`, redeploy, confirm with `/health` (it reports the provider back). **Have a second provider's key ready in a text file before you start.** Practise the switch once the night before; it takes about a minute on Render. |
+| "Vercel can't run this" | 🟡 Needs the precise version | It runs FastAPI fine. What it can't safely do is **background work after the response** — `waitUntil` is still bounded by the function's timeout. Say *"CPU is rented per request"*, not *"Vercel is limited"*. The number moves; the shape doesn't. |
+| "Just use DBOS / durable execution" | 🟢 True, but sequence it | Only raise it **after** the room has felt `BackgroundTasks` lose a run. Presented first it's an abstraction; presented second it's a fix. Note the real cost: DBOS needs a **Postgres connection string**, which this project otherwise avoids by using Supabase over REST. |
 
 ---
 
@@ -38,7 +43,13 @@ pedantry — it teaches the room that these numbers expire, which is the actual 
 | 🟡 Supabase | Whether legacy `anon`/`service_role` keys are still enabled | <https://supabase.com/docs/guides/getting-started/api-keys> |
 | 🟢 Render | Free instance hours, spin-down window, cold start | <https://render.com/docs/free> |
 | 🟡 Groq | RPM vs TPM on the free tier | <https://console.groq.com/docs/rate-limits> |
+| 🔴 OpenRouter | Which models are still `:free`, and their throttle | <https://openrouter.ai/models?max_price=0> |
+| 🔴 Cerebras | Free-tier limits and current model names | <https://cloud.cerebras.ai> |
+| 🔴 All providers | The current shape of the free-LLM landscape | <https://github.com/cheahjs/free-llm-api-resources> |
 | 🟢 GitHub Pages | Soft bandwidth/build limits | <https://docs.github.com/pages/getting-started-with-github-pages/about-github-pages> |
+| 🟡 HF Spaces | Free CPU hardware and the idle-sleep window | <https://huggingface.co/docs/hub/spaces-overview> |
+| 🔴 Vercel | Hobby `maxDuration` and the active-CPU cap | <https://vercel.com/docs/functions/limitations> |
+| 🟡 DBOS | Whether the hosted free tier still exists | <https://www.dbos.dev/pricing> |
 
 **Measure two numbers yourself the day before — they beat any documented figure:**
 

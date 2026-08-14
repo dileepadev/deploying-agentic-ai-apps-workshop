@@ -49,7 +49,7 @@ doesn't help.
     | **Start Command** | `uv run fastapi run main.py --port $PORT` |
     | **Instance Type** | Free |
 
-4. **Environment** → add `GEMINI_API_KEY`, `SUPABASE_URL`,
+4. **Environment** → add `LLM_API_KEY`, `SUPABASE_URL`,
    `SUPABASE_SECRET_KEY`.
 
     This is where secrets live in production: **in the platform, not the repo.**
@@ -73,7 +73,8 @@ means nothing outside can reach you — it shows up as a maddening "port scan
 timeout" in the deploy logs.
 
 [Full Render guide →](../../deploy/render/) ·
-[FastAPI Cloud as an alternative →](../../deploy/fastapi-cloud/)
+[FastAPI Cloud as an alternative →](../../deploy/fastapi-cloud/) ·
+[Other hosts →](../../deploy/alternatives/)
 
 ## Prove it's alive
 
@@ -183,8 +184,13 @@ More in [Troubleshooting →](../../deploy/troubleshooting/)
 
 - **Keep it alive.** [The free-tier survival guide](../../deploy/troubleshooting/#keeping-a-free-stack-alive)
 - **Make the background work durable.** `BackgroundTasks` loses runs on restart;
-  [durable execution](../../learn/deployment-problem/#the-catch-nobody-mentions)
-  checkpoints each step so a crash resumes instead of restarting.
+  [durable execution](../../deploy/alternatives/#dbos) checkpoints each step so a
+  crash resumes instead of restarting.
+- **Ship it somewhere else too.** [Other hosts](../../deploy/alternatives/) —
+  the same app on a second platform, and how to tell whether a host can run this
+  architecture at all.
+- **Change the model.** [Model providers](../../stack/llm-providers/) — Cerebras,
+  OpenRouter, Groq, all free, all three environment variables away.
 - **Add RAG.** The `memories` table and pgvector are already there —
   [Learn · Memory and RAG](../../learn/memory/).
 - **Real search.** Swap Wikipedia for Tavily or Brave in

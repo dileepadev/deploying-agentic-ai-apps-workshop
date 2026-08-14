@@ -88,6 +88,7 @@ export default defineConfig({
             { label: "Overview", slug: "deploy" },
             { label: "Render", slug: "deploy/render" },
             { label: "FastAPI Cloud", slug: "deploy/fastapi-cloud" },
+            { label: "Other hosts", slug: "deploy/alternatives" },
             { label: "Troubleshooting", slug: "deploy/troubleshooting" },
           ],
         },

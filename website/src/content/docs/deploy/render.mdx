@@ -53,15 +53,17 @@ services:
     healthCheckPath: /health
 
     envVars:
-      - key: GEMINI_API_KEY
+      - key: LLM_API_KEY
         sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
 
-      - key: GEMINI_MODEL
+      - key: LLM_MODEL
         value: gemini-flash-latest
+      - key: LLM_PROVIDER
+        value: google
       - key: MAX_AGENT_STEPS
         value: "12"
       - key: ALLOWED_ORIGINS
@@ -79,9 +81,10 @@ Four things in there are worth knowing:
 - **`sync: false`** means *"ask me for this value in the dashboard, and never
   store it in the repo"*. This is how secrets stay out of git — the three keys
   above it are secret, so none of them carry a value here.
-- **The variables that do carry a value** (`GEMINI_MODEL`, `MAX_AGENT_STEPS`,
-  `ALLOWED_ORIGINS`) aren't secret, so committing them is fine. Change
-  `ALLOWED_ORIGINS` to your real frontend origin before you go public.
+- **The variables that do carry a value** (`LLM_MODEL`, `LLM_PROVIDER`,
+  `MAX_AGENT_STEPS`, `ALLOWED_ORIGINS`) aren't secret, so committing them is
+  fine. Change `ALLOWED_ORIGINS` to your real frontend origin before you go
+  public.
 
 ## Environment variables
 
@@ -89,12 +92,29 @@ Dashboard → your service → **Environment**.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `GEMINI_API_KEY` | yes | from AI Studio |
+| `LLM_API_KEY` | yes | from AI Studio, or whichever provider you chose |
 | `SUPABASE_URL` | yes | no trailing slash |
 | `SUPABASE_SECRET_KEY` | yes | the `sb_secret_…` key, not the publishable one. On a pre-rename project, the legacy `service_role` key works here too |
-| `GEMINI_MODEL` | no | defaults to `gemini-flash-latest` |
+| `LLM_MODEL` | on Google only | defaults to `gemini-flash-latest`; required for every other provider |
+| `LLM_PROVIDER` | no | `google` (default), `cerebras`, `openrouter`, `openai-compatible` |
+| `LLM_BASE_URL` | only for `openai-compatible` | e.g. `https://api.groq.com/openai/v1` |
 | `MAX_AGENT_STEPS` | no | defaults to 12 |
 | `ALLOWED_ORIGINS` | no | comma-separated, no trailing slash |
+
+<Aside type="tip" title="This panel is your rate-limit escape hatch">
+
+
+If a free key dies mid-demo, changing `LLM_PROVIDER`, `LLM_API_KEY` and
+`LLM_MODEL` here and redeploying moves you to another provider without a code
+change. `/health` reports the provider back so you can confirm it took.
+
+[Model providers →](../../stack/llm-providers/)
+
+</Aside>
+
+The old `GEMINI_API_KEY` and `GEMINI_MODEL` names still work when
+`LLM_PROVIDER` is `google`, so a service deployed before this change keeps
+running untouched.
 
 <Aside type="caution" title="Changes need a redeploy">
 
