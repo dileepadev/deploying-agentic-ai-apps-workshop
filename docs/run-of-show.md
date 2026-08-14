@@ -23,13 +23,18 @@ running live.**
 | 0–05 | Intro, about me, agenda + what we're building | 1–6 | Show the finished demo mid-run **first** |
 | 05–20 | Agentic architecture & the Timeout Trap | 7–14 | The wall. Show a real 504. |
 | 20–40 | The accept-and-poll pattern | 15–23 | The money section. Slide 16 is the deck. |
-| 40–58 | Memory, state & vector storage | 24–31 | Runs/steps schema, pgvector, guardrails |
-| 58–80 | **Live walkthrough + deploy** | 32–34 | See runbook below |
-| 80–90 | Wrap-up, checklist, Q&A | 35–37 | Photographable checklist slide |
+| 40–58 | Memory, state, tools & guardrails | 24–33 | Schema, conversations, pgvector, narrow tools, MCP |
+| 58–80 | **Live walkthrough + deploy** | 34–38 | See runbook below |
+| 80–90 | Wrap-up, checklist, Q&A | 39–42 | Photographable checklist slide |
 
-> Slide numbers match the deck as it stands (37 slides). Each block starts on its
+> Slide numbers match the deck as it stands (42 slides). Each block starts on its
 > divider slide, and **`A`** jumps to the agenda from anywhere — the block you were
 > in stays marked, so you can take a tangent and find your way back.
+
+> **Two slides are cuttable if the clock is against you:** 27 (conversations) and
+> 33 (MCP both directions). Both are better demonstrated than explained — see the
+> runbook — so if you're behind, skip the slide and do the fifteen-second live
+> version instead.
 
 **Buffer discipline:** if you hit minute 58 and you're still on memory, cut straight
 to the demo. The demo is the session; the slides are the setup.

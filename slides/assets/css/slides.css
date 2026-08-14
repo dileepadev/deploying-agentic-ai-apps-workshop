@@ -293,6 +293,15 @@ tr:last-child td { border-bottom: 0; }
 .shot b { color: var(--warn); font-family: var(--mono); font-size: 14px; }
 .shot img { max-width: 100%; max-height: 100%; border-radius: 8px; }
 
+/* A QR code needs a white quiet zone and real contrast to scan from the back
+   of a room, so it deliberately ignores the deck's dark palette. */
+.qr {
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; border-radius: 12px; padding: 14px;
+  align-self: center; width: min(260px, 100%);
+}
+.qr svg { width: 100%; height: auto; display: block; shape-rendering: crispEdges; }
+
 /* --- Callouts -------------------------------------------------------------- */
 
 .callout {

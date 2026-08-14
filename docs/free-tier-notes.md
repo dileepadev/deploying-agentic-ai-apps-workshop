@@ -5,12 +5,14 @@
 >
 > Free-tier limits change constantly. Every figure below is marked with how much you
 > should trust it: 🟢 stable, 🟡 roughly right, 🔴 expires fast — re-check before you
-> quote it. The slide deck reads these numbers from one place
-> ([`slides/index.html`](../slides/index.html), search for `data-fact`), so they're
-> quick to correct in place.
+> quote it. The deck deliberately carries **no hard numbers** for the fast-moving
+> ones: slide 13 gives the shape of the trade-off and points here for the digits.
+> Where the deck does date a claim, it's in a `<p class="fact">` line
+> ([`slides/index.html`](../slides/index.html), search for `class="fact"`).
 
-Each slide that carries a number also carries the date it was verified. That is not
-pedantry — it teaches the room that these numbers expire, which is the actual lesson.
+Any slide that carries a number should also carry the date it was verified. That is
+not pedantry — it teaches the room that these numbers expire, which is the actual
+lesson.
 
 ---
 

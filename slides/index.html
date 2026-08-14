@@ -358,7 +358,7 @@
             <span class="ag-what"
               ><b>Memory &amp; state</b>
               <span
-                >Making the agent's thinking visible, and guarding it</span
+                >Conversations, visible thinking, and the guardrails</span
               ></span
             >
             <span class="ag-go">→</span>
@@ -432,13 +432,16 @@
         <h2>What we're building</h2>
         <div class="cols">
           <div class="shot">
-            <b>TODO: screenshot — demo UI mid-run</b>
-            Steps visible: "Agent is searching…"
+            <b>Run the live demo here</b>
+            Ask a question and let the steps appear — "Planning", "Searching
+            Wikipedia", "Reading a source". Fall back to a recording only if
+            the network is against you.
           </div>
           <div>
             <p>
               <strong>A research agent.</strong> You ask a question. It plans,
-              searches, reads sources, writes an answer, and saves it.
+              searches, reads sources, writes an answer, and saves it. Then you
+              ask a follow-up and it <em>remembers</em>.
             </p>
             <p>
               It takes <em>30–60 seconds</em>. That's deliberate — it's slow
@@ -459,6 +462,11 @@
             <li>
               If the live demo is warm, run it here for 20 seconds instead of
               showing the screenshot. Nothing beats the real thing.
+            </li>
+            <li>
+              Don't explain the memory or the web search yet — just let them see
+              a follow-up question work. <b>Both get their own slide later</b>,
+              and the curiosity is worth more than the explanation right now.
             </li>
           </ul>
         </div>
@@ -574,8 +582,10 @@
         <h2>The Timeout Trap</h2>
         <div class="cols">
           <div class="shot">
-            <b>TODO: screenshot — real 504 from /runs/naive</b>
-            Take this from your own Thursday testing
+            <b>Show a real 504</b>
+            Tick "Naive mode" in the demo UI and ask. Deployed, behind a proxy,
+            this is the request that dies. Capture a screenshot from your own
+            rehearsal as a backup.
           </div>
           <div>
             <p>
@@ -689,6 +699,14 @@
             >
             <span class="seq-time">free tier</span>
           </div>
+          <div class="seq-row">
+            <span class="seq-verb">SEARCH</span>
+            <span class="seq-what"
+              >Web search over MCP — <strong>Tavily</strong>
+              <span class="small">(optional)</span></span
+            >
+            <span class="seq-time">free tier</span>
+          </div>
         </div>
         <div class="callout mt">
           <p>
@@ -703,6 +721,11 @@
               or Fly.io instead of Render; Groq or OpenRouter instead of Gemini;
               Neon instead of Supabase.
               <b>The architecture is the transferable part.</b>
+            </li>
+            <li>
+              Search is the only <b>optional</b> box — leave the Tavily key out
+              and the agent researches with Wikipedia alone. Say so, or someone
+              will think they're missing a required signup.
             </li>
           </ul>
         </div>
@@ -751,8 +774,9 @@
           </p>
         </div>
         <p class="fact">
-          TODO: verify current limits on the session morning — see
-          docs/free-tier-notes.md
+          Exact numbers move every few months — check both providers on the
+          session morning. <code>docs/free-tier-notes.md</code> lists where to
+          look; the shape of the trade-off above outlasts the digits.
         </p>
         <div class="notes">
           <ul>
@@ -1217,11 +1241,13 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 23 -->
+      <!-- ================================================================ 24 -->
       <section class="slide divider" id="sec-memory">
         <div class="step-no">03</div>
         <h1>Memory &amp; state</h1>
-        <p class="big">Making the agent's thinking visible.</p>
+        <p class="big">
+          Making the agent's thinking visible — and giving it a memory.
+        </p>
         <div class="notes">
           <ul>
             <li>
@@ -1232,7 +1258,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 24 -->
+      <!-- ================================================================ 25 -->
       <section class="slide">
         <h2>Two kinds of memory</h2>
         <div class="cols">
@@ -1287,7 +1313,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 25 -->
+      <!-- ================================================================ 26 -->
       <section class="slide">
         <h2>Two tables, that's it</h2>
         <pre class="sm"><span class="k">create table</span> runs (
@@ -1329,7 +1355,76 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 26 -->
+      <!-- ================================================================ 27 -->
+      <section class="slide" data-title="Why is that?">
+        <h2>The whole of &ldquo;it remembers&rdquo;</h2>
+        <div class="cols">
+          <div>
+            <pre class="sm"><span class="c"># load the conversation</span>
+history = <span class="k">await</span> db.get_thread_messages(thread_id)
+
+<span class="hl">result = <span class="k">await</span> agent.run(query,
+    message_history=history)</span>
+
+<span class="c"># save it back, for next time</span>
+<span class="k">await</span> db.update_run(run_id,
+    messages=to_jsonable_python(result.all_messages()))</pre>
+            <p class="mt-s">
+              Load, run, save. Memory is a <strong>column</strong>, not a
+              feature.
+            </p>
+          </div>
+          <div>
+            <div class="card good">
+              <span class="tag">The demo</span>
+              <p>Ask a question. Then just type:</p>
+              <p class="big mt-s"><em>&ldquo;why is that?&rdquo;</em></p>
+              <p class="small mt-s">
+                Three words that mean nothing on their own. They work because
+                the server reloads the conversation and replays it to a model
+                that remembers <strong>nothing</strong>.
+              </p>
+            </div>
+            <p class="small mt-s">
+              One question is one <code>run</code>. A conversation is several
+              runs sharing a <code>thread_id</code>.
+            </p>
+          </div>
+        </div>
+        <div class="callout warn mt">
+          <p>
+            Every turn re-sends the <strong>whole</strong> history — so threads
+            get more expensive as they grow, and have to be capped.
+          </p>
+        </div>
+        <div class="notes">
+          <ul>
+            <li>
+              <b>Do this live, it takes fifteen seconds.</b> Ask something, then
+              ask "why is that?". The step log will say
+              <i>Recalling the conversation</i> with no new searches — it
+              already had the context.
+            </li>
+            <li>
+              <b>Then reload the page.</b> The conversation is still there. It
+              was never in the browser — it's a <code>messages</code> column in
+              Postgres, which is also why you could carry the thread to your
+              phone.
+            </li>
+            <li>
+              Callback to "models are stateless" from the anatomy section. This
+              slide is where that claim stops being abstract.
+            </li>
+            <li>
+              If asked why not just keep it in React state: a reload loses it, a
+              second device never had it, and the server is where the model call
+              happens anyway.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ================================================================ 28 -->
       <section class="slide">
         <h2>Logging the thought process</h2>
         <div class="cols">
@@ -1348,8 +1443,9 @@ LLM_API_KEY=</pre>
             </p>
           </div>
           <div class="shot">
-            <b>TODO: screenshot — Supabase steps rows next to the UI</b>
-            The rows and the rendered list, side by side
+            <b>Supabase table editor, live</b>
+            Put the <code>steps</code> rows and the rendered list side by side
+            and refresh mid-run. The rows and the UI are the same data.
           </div>
         </div>
         <div class="notes">
@@ -1367,7 +1463,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 27 -->
+      <!-- ================================================================ 29 -->
       <section class="slide">
         <h2>pgvector in three commands</h2>
         <pre
@@ -1403,7 +1499,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 28 -->
+      <!-- ================================================================ 30 -->
       <section class="slide">
         <h2>The dimension gotcha</h2>
         <div class="callout err">
@@ -1447,7 +1543,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 29 -->
+      <!-- ================================================================ 31 -->
       <section class="slide">
         <h2>
           An agent is an unpredictable user<br />with database credentials
@@ -1507,7 +1603,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 30 -->
+      <!-- ================================================================ 32 -->
       <section class="slide">
         <h2>Give it a door, not a bulldozer</h2>
         <div class="cols">
@@ -1556,7 +1652,82 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 31 -->
+      <!-- ================================================================ 33 -->
+      <section class="slide" data-title="MCP, both directions">
+        <h2>MCP goes both ways</h2>
+        <p>
+          A tool is a function. <strong>MCP is that function, described so a
+          client that has never seen your code can call it.</strong>
+        </p>
+        <div class="cols mt-s">
+          <div class="card good">
+            <span class="tag">We are a server</span>
+            <pre
+              class="sm"
+              style="border: 0; background: transparent; padding: 0"
+            >app.mount(<span class="s">"/mcp"</span>, mcp_app)</pre>
+            <p class="small mt-s">
+              One line, mounted inside the API that was already deploying. Point
+              Claude Desktop at
+              <code>your-app.onrender.com/mcp</code> and your Wikipedia tools
+              show up there. <strong>No second service.</strong>
+            </p>
+          </div>
+          <div class="card">
+            <span
+              class="tag"
+              style="background: rgba(127, 182, 240, 0.13); color: var(--blue)"
+              >We are also a client</span
+            >
+            <pre
+              class="sm"
+              style="border: 0; background: transparent; padding: 0"
+            >MCPToolset(<span class="s">"https://mcp.tavily.com/mcp"</span>)
+  .filtered(<span class="k">lambda</span> ctx, t:
+      t.name == <span class="s">"tavily_search"</span>)</pre>
+            <p class="small mt-s">
+              Web search we didn't build, from a server we don't run. Wikipedia
+              is written <em>after</em> the fact — this is how the agent answers
+              &ldquo;what happened this week?&rdquo;
+            </p>
+          </div>
+        </div>
+        <div class="callout mt">
+          <p>
+            <strong>If one program calls one function, MCP buys you nothing.</strong>
+            It earns its place at a boundary — and deployment creates one.
+          </p>
+        </div>
+        <div class="notes">
+          <ul>
+            <li>
+              The takeaway is the symmetry: <b>one app, both ends of the same
+              protocol.</b> Most people only ever see the server half and
+              conclude MCP is a packaging format.
+            </li>
+            <li>
+              <b>Point at <code>.filtered()</code>.</b> Tavily's server offers
+              five tools — search, extract, crawl, map, research. We take one.
+              Handing a model all five is four more ways to spend credits.
+              "Narrow tools" from the previous slide, applied to tools you
+              didn't write.
+            </li>
+            <li>
+              Worth saying: we wrote no HTTP calls, no response parsing, and
+              <b>no tool descriptions for the model</b> — their server describes
+              itself. That's the actual payoff.
+            </li>
+            <li>
+              Optional in the repo. No <code>TAVILY_API_KEY</code>, no search
+              tool, and the agent says it can't check current information
+              instead of inventing it. Check <code>web_search</code> on
+              <code>/health</code> before demoing this.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ================================================================ 34 -->
       <section class="slide divider" id="sec-deploy">
         <div class="step-no">04</div>
         <h1>Let's deploy it</h1>
@@ -1569,9 +1740,11 @@ LLM_API_KEY=</pre>
               >
             </p>
           </div>
-          <div class="shot" style="min-height: 240px">
-            <b>TODO: big QR code to the repo</b>
-            Test it from the back row
+          <div class="qr">
+            <svg viewBox="0 0 45 45" role="img" aria-label="QR code to github.com/dileepadev/deploying-agentic-ai-apps-workshop">
+              <rect width="45" height="45" fill="#fff" />
+              <path d="M0.4,0.4H0.5V0.5H0.4zM0.5,0.4H0.6V0.5H0.5zM0.6,0.4H0.7V0.5H0.6zM0.7,0.4H0.8V0.5H0.7zM0.8,0.4H0.9V0.5H0.8zM0.9,0.4H1V0.5H0.9zM1,0.4H1.1V0.5H1zM1.2,0.4H1.3V0.5H1.2zM1.4,0.4H1.5V0.5H1.4zM1.5,0.4H1.6V0.5H1.5zM1.6,0.4H1.7V0.5H1.6zM1.7,0.4H1.8V0.5H1.7zM1.8,0.4H1.9V0.5H1.8zM1.9,0.4H2V0.5H1.9zM2.1,0.4H2.2V0.5H2.1zM2.3,0.4H2.4V0.5H2.3zM2.4,0.4H2.5V0.5H2.4zM2.9,0.4H3V0.5H2.9zM3.1,0.4H3.2V0.5H3.1zM3.2,0.4H3.3V0.5H3.2zM3.4,0.4H3.5V0.5H3.4zM3.5,0.4H3.6V0.5H3.5zM3.6,0.4H3.7V0.5H3.6zM3.7,0.4H3.8V0.5H3.7zM3.8,0.4H3.9V0.5H3.8zM3.9,0.4H4V0.5H3.9zM4,0.4H4.1V0.5H4zM0.4,0.5H0.5V0.6H0.4zM1,0.5H1.1V0.6H1zM1.3,0.5H1.4V0.6H1.3zM1.4,0.5H1.5V0.6H1.4zM1.5,0.5H1.6V0.6H1.5zM1.7,0.5H1.8V0.6H1.7zM1.9,0.5H2V0.6H1.9zM2.3,0.5H2.4V0.6H2.3zM2.7,0.5H2.8V0.6H2.7zM2.8,0.5H2.9V0.6H2.8zM3,0.5H3.1V0.6H3zM3.2,0.5H3.3V0.6H3.2zM3.4,0.5H3.5V0.6H3.4zM4,0.5H4.1V0.6H4zM0.4,0.6H0.5V0.7H0.4zM0.6,0.6H0.7V0.7H0.6zM0.7,0.6H0.8V0.7H0.7zM0.8,0.6H0.9V0.7H0.8zM1,0.6H1.1V0.7H1zM1.3,0.6H1.4V0.7H1.3zM1.4,0.6H1.5V0.7H1.4zM1.5,0.6H1.6V0.7H1.5zM1.6,0.6H1.7V0.7H1.6zM1.7,0.6H1.8V0.7H1.7zM1.8,0.6H1.9V0.7H1.8zM2,0.6H2.1V0.7H2zM2.1,0.6H2.2V0.7H2.1zM2.5,0.6H2.6V0.7H2.5zM2.6,0.6H2.7V0.7H2.6zM2.8,0.6H2.9V0.7H2.8zM3,0.6H3.1V0.7H3zM3.4,0.6H3.5V0.7H3.4zM3.6,0.6H3.7V0.7H3.6zM3.7,0.6H3.8V0.7H3.7zM3.8,0.6H3.9V0.7H3.8zM4,0.6H4.1V0.7H4zM0.4,0.7H0.5V0.8H0.4zM0.6,0.7H0.7V0.8H0.6zM0.7,0.7H0.8V0.8H0.7zM0.8,0.7H0.9V0.8H0.8zM1,0.7H1.1V0.8H1zM1.2,0.7H1.3V0.8H1.2zM1.3,0.7H1.4V0.8H1.3zM1.4,0.7H1.5V0.8H1.4zM1.7,0.7H1.8V0.8H1.7zM1.9,0.7H2V0.8H1.9zM2.2,0.7H2.3V0.8H2.2zM2.8,0.7H2.9V0.8H2.8zM2.9,0.7H3V0.8H2.9zM3,0.7H3.1V0.8H3zM3.2,0.7H3.3V0.8H3.2zM3.4,0.7H3.5V0.8H3.4zM3.6,0.7H3.7V0.8H3.6zM3.7,0.7H3.8V0.8H3.7zM3.8,0.7H3.9V0.8H3.8zM4,0.7H4.1V0.8H4zM0.4,0.8H0.5V0.9H0.4zM0.6,0.8H0.7V0.9H0.6zM0.7,0.8H0.8V0.9H0.7zM0.8,0.8H0.9V0.9H0.8zM1,0.8H1.1V0.9H1zM1.2,0.8H1.3V0.9H1.2zM1.3,0.8H1.4V0.9H1.3zM1.6,0.8H1.7V0.9H1.6zM1.8,0.8H1.9V0.9H1.8zM1.9,0.8H2V0.9H1.9zM2.1,0.8H2.2V0.9H2.1zM2.2,0.8H2.3V0.9H2.2zM2.7,0.8H2.8V0.9H2.7zM2.9,0.8H3V0.9H2.9zM3,0.8H3.1V0.9H3zM3.1,0.8H3.2V0.9H3.1zM3.2,0.8H3.3V0.9H3.2zM3.4,0.8H3.5V0.9H3.4zM3.6,0.8H3.7V0.9H3.6zM3.7,0.8H3.8V0.9H3.7zM3.8,0.8H3.9V0.9H3.8zM4,0.8H4.1V0.9H4zM0.4,0.9H0.5V1H0.4zM1,0.9H1.1V1H1zM1.2,0.9H1.3V1H1.2zM1.3,0.9H1.4V1H1.3zM1.5,0.9H1.6V1H1.5zM1.6,0.9H1.7V1H1.6zM1.7,0.9H1.8V1H1.7zM1.9,0.9H2V1H1.9zM2,0.9H2.1V1H2zM2.1,0.9H2.2V1H2.1zM2.3,0.9H2.4V1H2.3zM2.4,0.9H2.5V1H2.4zM3,0.9H3.1V1H3zM3.4,0.9H3.5V1H3.4zM4,0.9H4.1V1H4zM0.4,1H0.5V1.1H0.4zM0.5,1H0.6V1.1H0.5zM0.6,1H0.7V1.1H0.6zM0.7,1H0.8V1.1H0.7zM0.8,1H0.9V1.1H0.8zM0.9,1H1V1.1H0.9zM1,1H1.1V1.1H1zM1.2,1H1.3V1.1H1.2zM1.4,1H1.5V1.1H1.4zM1.6,1H1.7V1.1H1.6zM1.8,1H1.9V1.1H1.8zM2,1H2.1V1.1H2zM2.2,1H2.3V1.1H2.2zM2.4,1H2.5V1.1H2.4zM2.6,1H2.7V1.1H2.6zM2.8,1H2.9V1.1H2.8zM3,1H3.1V1.1H3zM3.2,1H3.3V1.1H3.2zM3.4,1H3.5V1.1H3.4zM3.5,1H3.6V1.1H3.5zM3.6,1H3.7V1.1H3.6zM3.7,1H3.8V1.1H3.7zM3.8,1H3.9V1.1H3.8zM3.9,1H4V1.1H3.9zM4,1H4.1V1.1H4zM1.2,1.1H1.3V1.2H1.2zM1.3,1.1H1.4V1.2H1.3zM1.4,1.1H1.5V1.2H1.4zM1.9,1.1H2V1.2H1.9zM2.5,1.1H2.6V1.2H2.5zM2.7,1.1H2.8V1.2H2.7zM2.8,1.1H2.9V1.2H2.8zM0.4,1.2H0.5V1.3H0.4zM0.8,1.2H0.9V1.3H0.8zM1,1.2H1.1V1.3H1zM1.1,1.2H1.2V1.3H1.1zM1.2,1.2H1.3V1.3H1.2zM1.3,1.2H1.4V1.3H1.3zM1.6,1.2H1.7V1.3H1.6zM1.7,1.2H1.8V1.3H1.7zM1.8,1.2H1.9V1.3H1.8zM1.9,1.2H2V1.3H1.9zM2,1.2H2.1V1.3H2zM2.3,1.2H2.4V1.3H2.3zM2.4,1.2H2.5V1.3H2.4zM3.1,1.2H3.2V1.3H3.1zM3.3,1.2H3.4V1.3H3.3zM3.4,1.2H3.5V1.3H3.4zM3.5,1.2H3.6V1.3H3.5zM3.6,1.2H3.7V1.3H3.6zM3.7,1.2H3.8V1.3H3.7zM4,1.2H4.1V1.3H4zM0.4,1.3H0.5V1.4H0.4zM0.5,1.3H0.6V1.4H0.5zM0.6,1.3H0.7V1.4H0.6zM0.8,1.3H0.9V1.4H0.8zM0.9,1.3H1V1.4H0.9zM1.2,1.3H1.3V1.4H1.2zM1.4,1.3H1.5V1.4H1.4zM1.6,1.3H1.7V1.4H1.6zM2.1,1.3H2.2V1.4H2.1zM2.2,1.3H2.3V1.4H2.2zM2.3,1.3H2.4V1.4H2.3zM2.6,1.3H2.7V1.4H2.6zM2.8,1.3H2.9V1.4H2.8zM3,1.3H3.1V1.4H3zM3.1,1.3H3.2V1.4H3.1zM3.2,1.3H3.3V1.4H3.2zM3.6,1.3H3.7V1.4H3.6zM3.7,1.3H3.8V1.4H3.7zM3.9,1.3H4V1.4H3.9zM0.4,1.4H0.5V1.5H0.4zM0.6,1.4H0.7V1.5H0.6zM0.7,1.4H0.8V1.5H0.7zM1,1.4H1.1V1.5H1zM1.2,1.4H1.3V1.5H1.2zM1.3,1.4H1.4V1.5H1.3zM1.4,1.4H1.5V1.5H1.4zM1.5,1.4H1.6V1.5H1.5zM1.7,1.4H1.8V1.5H1.7zM1.9,1.4H2V1.5H1.9zM2.2,1.4H2.3V1.5H2.2zM2.3,1.4H2.4V1.5H2.3zM2.5,1.4H2.6V1.5H2.5zM2.6,1.4H2.7V1.5H2.6zM2.7,1.4H2.8V1.5H2.7zM2.8,1.4H2.9V1.5H2.8zM2.9,1.4H3V1.5H2.9zM3,1.4H3.1V1.5H3zM3.1,1.4H3.2V1.5H3.1zM3.5,1.4H3.6V1.5H3.5zM3.7,1.4H3.8V1.5H3.7zM3.8,1.4H3.9V1.5H3.8zM0.6,1.5H0.7V1.6H0.6zM0.7,1.5H0.8V1.6H0.7zM0.8,1.5H0.9V1.6H0.8zM1.1,1.5H1.2V1.6H1.1zM1.3,1.5H1.4V1.6H1.3zM1.4,1.5H1.5V1.6H1.4zM1.8,1.5H1.9V1.6H1.8zM1.9,1.5H2V1.6H1.9zM2,1.5H2.1V1.6H2zM2.1,1.5H2.2V1.6H2.1zM2.2,1.5H2.3V1.6H2.2zM2.3,1.5H2.4V1.6H2.3zM2.4,1.5H2.5V1.6H2.4zM2.5,1.5H2.6V1.6H2.5zM2.7,1.5H2.8V1.6H2.7zM3,1.5H3.1V1.6H3zM3.4,1.5H3.5V1.6H3.4zM3.5,1.5H3.6V1.6H3.5zM3.6,1.5H3.7V1.6H3.6zM3.8,1.5H3.9V1.6H3.8zM3.9,1.5H4V1.6H3.9zM0.4,1.6H0.5V1.7H0.4zM0.7,1.6H0.8V1.7H0.7zM0.8,1.6H0.9V1.7H0.8zM0.9,1.6H1V1.7H0.9zM1,1.6H1.1V1.7H1zM1.2,1.6H1.3V1.7H1.2zM1.4,1.6H1.5V1.7H1.4zM1.5,1.6H1.6V1.7H1.5zM1.6,1.6H1.7V1.7H1.6zM1.8,1.6H1.9V1.7H1.8zM2.1,1.6H2.2V1.7H2.1zM2.5,1.6H2.6V1.7H2.5zM2.6,1.6H2.7V1.7H2.6zM2.8,1.6H2.9V1.7H2.8zM3.3,1.6H3.4V1.7H3.3zM3.4,1.6H3.5V1.7H3.4zM3.5,1.6H3.6V1.7H3.5zM3.8,1.6H3.9V1.7H3.8zM3.9,1.6H4V1.7H3.9zM4,1.6H4.1V1.7H4zM0.4,1.7H0.5V1.8H0.4zM0.5,1.7H0.6V1.8H0.5zM0.6,1.7H0.7V1.8H0.6zM0.7,1.7H0.8V1.8H0.7zM0.9,1.7H1V1.8H0.9zM1.1,1.7H1.2V1.8H1.1zM1.2,1.7H1.3V1.8H1.2zM1.8,1.7H1.9V1.8H1.8zM1.9,1.7H2V1.8H1.9zM2,1.7H2.1V1.8H2zM2.5,1.7H2.6V1.8H2.5zM2.7,1.7H2.8V1.8H2.7zM3,1.7H3.1V1.8H3zM3.1,1.7H3.2V1.8H3.1zM3.6,1.7H3.7V1.8H3.6zM3.7,1.7H3.8V1.8H3.7zM3.9,1.7H4V1.8H3.9zM0.4,1.8H0.5V1.9H0.4zM0.7,1.8H0.8V1.9H0.7zM0.8,1.8H0.9V1.9H0.8zM0.9,1.8H1V1.9H0.9zM1,1.8H1.1V1.9H1zM1.1,1.8H1.2V1.9H1.1zM1.2,1.8H1.3V1.9H1.2zM1.5,1.8H1.6V1.9H1.5zM1.7,1.8H1.8V1.9H1.7zM1.9,1.8H2V1.9H1.9zM2.1,1.8H2.2V1.9H2.1zM2.4,1.8H2.5V1.9H2.4zM2.7,1.8H2.8V1.9H2.7zM2.8,1.8H2.9V1.9H2.8zM2.9,1.8H3V1.9H2.9zM3.1,1.8H3.2V1.9H3.1zM3.2,1.8H3.3V1.9H3.2zM3.3,1.8H3.4V1.9H3.3zM3.5,1.8H3.6V1.9H3.5zM3.6,1.8H3.7V1.9H3.6zM3.7,1.8H3.8V1.9H3.7zM3.8,1.8H3.9V1.9H3.8zM0.5,1.9H0.6V2H0.5zM0.6,1.9H0.7V2H0.6zM0.8,1.9H0.9V2H0.8zM1.1,1.9H1.2V2H1.1zM1.8,1.9H1.9V2H1.8zM1.9,1.9H2V2H1.9zM2,1.9H2.1V2H2zM2.1,1.9H2.2V2H2.1zM2.2,1.9H2.3V2H2.2zM2.4,1.9H2.5V2H2.4zM2.6,1.9H2.7V2H2.6zM2.7,1.9H2.8V2H2.7zM2.8,1.9H2.9V2H2.8zM3,1.9H3.1V2H3zM3.2,1.9H3.3V2H3.2zM3.5,1.9H3.6V2H3.5zM3.6,1.9H3.7V2H3.6zM3.8,1.9H3.9V2H3.8zM3.9,1.9H4V2H3.9zM4,1.9H4.1V2H4zM0.4,2H0.5V2.1H0.4zM0.5,2H0.6V2.1H0.5zM0.6,2H0.7V2.1H0.6zM0.7,2H0.8V2.1H0.7zM0.8,2H0.9V2.1H0.8zM1,2H1.1V2.1H1zM1.1,2H1.2V2.1H1.1zM1.2,2H1.3V2.1H1.2zM1.4,2H1.5V2.1H1.4zM1.5,2H1.6V2.1H1.5zM1.6,2H1.7V2.1H1.6zM2.2,2H2.3V2.1H2.2zM2.3,2H2.4V2.1H2.3zM2.6,2H2.7V2.1H2.6zM2.8,2H2.9V2.1H2.8zM3.2,2H3.3V2.1H3.2zM3.3,2H3.4V2.1H3.3zM3.4,2H3.5V2.1H3.4zM3.5,2H3.6V2.1H3.5zM3.7,2H3.8V2.1H3.7zM3.8,2H3.9V2.1H3.8zM3.9,2H4V2.1H3.9zM0.4,2.1H0.5V2.2H0.4zM0.7,2.1H0.8V2.2H0.7zM0.8,2.1H0.9V2.2H0.8zM1.2,2.1H1.3V2.2H1.2zM1.5,2.1H1.6V2.2H1.5zM1.6,2.1H1.7V2.2H1.6zM1.7,2.1H1.8V2.2H1.7zM2,2.1H2.1V2.2H2zM2.1,2.1H2.2V2.2H2.1zM2.3,2.1H2.4V2.2H2.3zM2.4,2.1H2.5V2.2H2.4zM3.1,2.1H3.2V2.2H3.1zM3.2,2.1H3.3V2.2H3.2zM3.3,2.1H3.4V2.2H3.3zM3.5,2.1H3.6V2.2H3.5zM3.6,2.1H3.7V2.2H3.6zM3.8,2.1H3.9V2.2H3.8zM3.9,2.1H4V2.2H3.9zM0.8,2.2H0.9V2.3H0.8zM0.9,2.2H1V2.3H0.9zM1,2.2H1.1V2.3H1zM1.2,2.2H1.3V2.3H1.2zM1.3,2.2H1.4V2.3H1.3zM1.4,2.2H1.5V2.3H1.4zM1.6,2.2H1.7V2.3H1.6zM1.8,2.2H1.9V2.3H1.8zM2,2.2H2.1V2.3H2zM2.1,2.2H2.2V2.3H2.1zM2.4,2.2H2.5V2.3H2.4zM2.5,2.2H2.6V2.3H2.5zM3,2.2H3.1V2.3H3zM3.1,2.2H3.2V2.3H3.1zM3.3,2.2H3.4V2.3H3.3zM3.4,2.2H3.5V2.3H3.4zM3.5,2.2H3.6V2.3H3.5zM3.8,2.2H3.9V2.3H3.8zM0.4,2.3H0.5V2.4H0.4zM0.7,2.3H0.8V2.4H0.7zM1.2,2.3H1.3V2.4H1.2zM1.5,2.3H1.6V2.4H1.5zM1.7,2.3H1.8V2.4H1.7zM1.8,2.3H1.9V2.4H1.8zM2.1,2.3H2.2V2.4H2.1zM2.2,2.3H2.3V2.4H2.2zM2.5,2.3H2.6V2.4H2.5zM2.6,2.3H2.7V2.4H2.6zM2.8,2.3H2.9V2.4H2.8zM3,2.3H3.1V2.4H3zM3.1,2.3H3.2V2.4H3.1zM3.6,2.3H3.7V2.4H3.6zM3.8,2.3H3.9V2.4H3.8zM3.9,2.3H4V2.4H3.9zM0.4,2.4H0.5V2.5H0.4zM0.5,2.4H0.6V2.5H0.5zM0.8,2.4H0.9V2.5H0.8zM1,2.4H1.1V2.5H1zM1.2,2.4H1.3V2.5H1.2zM1.3,2.4H1.4V2.5H1.3zM1.6,2.4H1.7V2.5H1.6zM1.7,2.4H1.8V2.5H1.7zM1.8,2.4H1.9V2.5H1.8zM1.9,2.4H2V2.5H1.9zM2.1,2.4H2.2V2.5H2.1zM2.3,2.4H2.4V2.5H2.3zM2.4,2.4H2.5V2.5H2.4zM2.5,2.4H2.6V2.5H2.5zM2.6,2.4H2.7V2.5H2.6zM2.7,2.4H2.8V2.5H2.7zM2.8,2.4H2.9V2.5H2.8zM3,2.4H3.1V2.5H3zM3.1,2.4H3.2V2.5H3.1zM3.3,2.4H3.4V2.5H3.3zM3.4,2.4H3.5V2.5H3.4zM3.5,2.4H3.6V2.5H3.5zM3.8,2.4H3.9V2.5H3.8zM0.4,2.5H0.5V2.6H0.4zM0.5,2.5H0.6V2.6H0.5zM0.6,2.5H0.7V2.6H0.6zM0.7,2.5H0.8V2.6H0.7zM0.8,2.5H0.9V2.6H0.8zM1.7,2.5H1.8V2.6H1.7zM1.8,2.5H1.9V2.6H1.8zM1.9,2.5H2V2.6H1.9zM2,2.5H2.1V2.6H2zM2.1,2.5H2.2V2.6H2.1zM2.2,2.5H2.3V2.6H2.2zM2.7,2.5H2.8V2.6H2.7zM2.9,2.5H3V2.6H2.9zM3,2.5H3.1V2.6H3zM3.1,2.5H3.2V2.6H3.1zM3.2,2.5H3.3V2.6H3.2zM3.3,2.5H3.4V2.6H3.3zM3.5,2.5H3.6V2.6H3.5zM3.6,2.5H3.7V2.6H3.6zM0.7,2.6H0.8V2.7H0.7zM0.9,2.6H1V2.7H0.9zM1,2.6H1.1V2.7H1zM1.2,2.6H1.3V2.7H1.2zM1.5,2.6H1.6V2.7H1.5zM1.7,2.6H1.8V2.7H1.7zM1.8,2.6H1.9V2.7H1.8zM1.9,2.6H2V2.7H1.9zM2.2,2.6H2.3V2.7H2.2zM2.5,2.6H2.6V2.7H2.5zM2.6,2.6H2.7V2.7H2.6zM2.7,2.6H2.8V2.7H2.7zM2.9,2.6H3V2.7H2.9zM3.1,2.6H3.2V2.7H3.1zM3.3,2.6H3.4V2.7H3.3zM3.5,2.6H3.6V2.7H3.5zM3.6,2.6H3.7V2.7H3.6zM3.7,2.6H3.8V2.7H3.7zM3.8,2.6H3.9V2.7H3.8zM0.4,2.7H0.5V2.8H0.4zM0.5,2.7H0.6V2.8H0.5zM0.6,2.7H0.7V2.8H0.6zM0.7,2.7H0.8V2.8H0.7zM0.9,2.7H1V2.8H0.9zM1.2,2.7H1.3V2.8H1.2zM1.4,2.7H1.5V2.8H1.4zM1.5,2.7H1.6V2.8H1.5zM1.6,2.7H1.7V2.8H1.6zM1.7,2.7H1.8V2.8H1.7zM1.8,2.7H1.9V2.8H1.8zM1.9,2.7H2V2.8H1.9zM2.4,2.7H2.5V2.8H2.4zM2.5,2.7H2.6V2.8H2.5zM2.7,2.7H2.8V2.8H2.7zM2.8,2.7H2.9V2.8H2.8zM3,2.7H3.1V2.8H3zM3.1,2.7H3.2V2.8H3.1zM3.3,2.7H3.4V2.8H3.3zM3.5,2.7H3.6V2.8H3.5zM3.6,2.7H3.7V2.8H3.6zM3.8,2.7H3.9V2.8H3.8zM0.5,2.8H0.6V2.9H0.5zM0.6,2.8H0.7V2.9H0.6zM0.7,2.8H0.8V2.9H0.7zM0.8,2.8H0.9V2.9H0.8zM1,2.8H1.1V2.9H1zM1.2,2.8H1.3V2.9H1.2zM1.5,2.8H1.6V2.9H1.5zM1.6,2.8H1.7V2.9H1.6zM1.7,2.8H1.8V2.9H1.7zM1.9,2.8H2V2.9H1.9zM2,2.8H2.1V2.9H2zM2.3,2.8H2.4V2.9H2.3zM2.4,2.8H2.5V2.9H2.4zM2.7,2.8H2.8V2.9H2.7zM2.8,2.8H2.9V2.9H2.8zM3.3,2.8H3.4V2.9H3.3zM3.4,2.8H3.5V2.9H3.4zM3.5,2.8H3.6V2.9H3.5zM3.7,2.8H3.8V2.9H3.7zM3.8,2.8H3.9V2.9H3.8zM3.9,2.8H4V2.9H3.9zM4,2.8H4.1V2.9H4zM0.4,2.9H0.5V3H0.4zM0.5,2.9H0.6V3H0.5zM1.1,2.9H1.2V3H1.1zM1.3,2.9H1.4V3H1.3zM1.4,2.9H1.5V3H1.4zM1.6,2.9H1.7V3H1.6zM1.8,2.9H1.9V3H1.8zM2.1,2.9H2.2V3H2.1zM2.2,2.9H2.3V3H2.2zM2.3,2.9H2.4V3H2.3zM2.6,2.9H2.7V3H2.6zM2.8,2.9H2.9V3H2.8zM3,2.9H3.1V3H3zM3.1,2.9H3.2V3H3.1zM3.3,2.9H3.4V3H3.3zM3.6,2.9H3.7V3H3.6zM0.8,3H0.9V3.1H0.8zM0.9,3H1V3.1H0.9zM1,3H1.1V3.1H1zM1.1,3H1.2V3.1H1.1zM1.2,3H1.3V3.1H1.2zM1.3,3H1.4V3.1H1.3zM1.4,3H1.5V3.1H1.4zM1.5,3H1.6V3.1H1.5zM1.7,3H1.8V3.1H1.7zM1.9,3H2V3.1H1.9zM2.1,3H2.2V3.1H2.1zM2.3,3H2.4V3.1H2.3zM2.5,3H2.6V3.1H2.5zM2.7,3H2.8V3.1H2.7zM2.9,3H3V3.1H2.9zM3,3H3.1V3.1H3zM3.1,3H3.2V3.1H3.1zM3.5,3H3.6V3.1H3.5zM0.6,3.1H0.7V3.2H0.6zM1.1,3.1H1.2V3.2H1.1zM1.2,3.1H1.3V3.2H1.2zM1.4,3.1H1.5V3.2H1.4zM1.5,3.1H1.6V3.2H1.5zM1.6,3.1H1.7V3.2H1.6zM1.9,3.1H2V3.2H1.9zM2,3.1H2.1V3.2H2zM2.1,3.1H2.2V3.2H2.1zM2.2,3.1H2.3V3.2H2.2zM2.3,3.1H2.4V3.2H2.3zM2.4,3.1H2.5V3.2H2.4zM2.5,3.1H2.6V3.2H2.5zM2.7,3.1H2.8V3.2H2.7zM3,3.1H3.1V3.2H3zM3.2,3.1H3.3V3.2H3.2zM3.3,3.1H3.4V3.2H3.3zM3.7,3.1H3.8V3.2H3.7zM3.8,3.1H3.9V3.2H3.8zM3.9,3.1H4V3.2H3.9zM0.4,3.2H0.5V3.3H0.4zM0.5,3.2H0.6V3.3H0.5zM0.6,3.2H0.7V3.3H0.6zM0.9,3.2H1V3.3H0.9zM1,3.2H1.1V3.3H1zM1.6,3.2H1.7V3.3H1.6zM1.7,3.2H1.8V3.3H1.7zM1.8,3.2H1.9V3.3H1.8zM2.1,3.2H2.2V3.3H2.1zM2.4,3.2H2.5V3.3H2.4zM2.5,3.2H2.6V3.3H2.5zM2.6,3.2H2.7V3.3H2.6zM2.8,3.2H2.9V3.3H2.8zM3.2,3.2H3.3V3.3H3.2zM3.3,3.2H3.4V3.3H3.3zM3.4,3.2H3.5V3.3H3.4zM3.5,3.2H3.6V3.3H3.5zM3.6,3.2H3.7V3.3H3.6zM3.8,3.2H3.9V3.3H3.8zM4,3.2H4.1V3.3H4zM1.2,3.3H1.3V3.4H1.2zM1.4,3.3H1.5V3.4H1.4zM1.5,3.3H1.6V3.4H1.5zM1.7,3.3H1.8V3.4H1.7zM1.8,3.3H1.9V3.4H1.8zM1.9,3.3H2V3.4H1.9zM2.2,3.3H2.3V3.4H2.2zM2.5,3.3H2.6V3.4H2.5zM2.6,3.3H2.7V3.4H2.6zM2.7,3.3H2.8V3.4H2.7zM3,3.3H3.1V3.4H3zM3.1,3.3H3.2V3.4H3.1zM3.2,3.3H3.3V3.4H3.2zM3.6,3.3H3.7V3.4H3.6zM0.4,3.4H0.5V3.5H0.4zM0.5,3.4H0.6V3.5H0.5zM0.6,3.4H0.7V3.5H0.6zM0.7,3.4H0.8V3.5H0.7zM0.8,3.4H0.9V3.5H0.8zM0.9,3.4H1V3.5H0.9zM1,3.4H1.1V3.5H1zM1.2,3.4H1.3V3.5H1.2zM1.6,3.4H1.7V3.5H1.6zM1.7,3.4H1.8V3.5H1.7zM1.9,3.4H2V3.5H1.9zM2.1,3.4H2.2V3.5H2.1zM2.4,3.4H2.5V3.5H2.4zM2.7,3.4H2.8V3.5H2.7zM2.8,3.4H2.9V3.5H2.8zM3.2,3.4H3.3V3.5H3.2zM3.4,3.4H3.5V3.5H3.4zM3.6,3.4H3.7V3.5H3.6zM0.4,3.5H0.5V3.6H0.4zM1,3.5H1.1V3.6H1zM1.3,3.5H1.4V3.6H1.3zM1.4,3.5H1.5V3.6H1.4zM1.5,3.5H1.6V3.6H1.5zM1.6,3.5H1.7V3.6H1.6zM1.7,3.5H1.8V3.6H1.7zM2.1,3.5H2.2V3.6H2.1zM2.2,3.5H2.3V3.6H2.2zM2.3,3.5H2.4V3.6H2.3zM2.4,3.5H2.5V3.6H2.4zM2.6,3.5H2.7V3.6H2.6zM2.7,3.5H2.8V3.6H2.7zM3.2,3.5H3.3V3.6H3.2zM3.6,3.5H3.7V3.6H3.6zM3.7,3.5H3.8V3.6H3.7zM3.8,3.5H3.9V3.6H3.8zM4,3.5H4.1V3.6H4zM0.4,3.6H0.5V3.7H0.4zM0.6,3.6H0.7V3.7H0.6zM0.7,3.6H0.8V3.7H0.7zM0.8,3.6H0.9V3.7H0.8zM1,3.6H1.1V3.7H1zM1.2,3.6H1.3V3.7H1.2zM1.3,3.6H1.4V3.7H1.3zM1.4,3.6H1.5V3.7H1.4zM1.6,3.6H1.7V3.7H1.6zM1.7,3.6H1.8V3.7H1.7zM2.2,3.6H2.3V3.7H2.2zM2.6,3.6H2.7V3.7H2.6zM2.7,3.6H2.8V3.7H2.7zM3.2,3.6H3.3V3.7H3.2zM3.3,3.6H3.4V3.7H3.3zM3.4,3.6H3.5V3.7H3.4zM3.5,3.6H3.6V3.7H3.5zM3.6,3.6H3.7V3.7H3.6zM3.7,3.6H3.8V3.7H3.7zM3.8,3.6H3.9V3.7H3.8zM3.9,3.6H4V3.7H3.9zM4,3.6H4.1V3.7H4zM0.4,3.7H0.5V3.8H0.4zM0.6,3.7H0.7V3.8H0.6zM0.7,3.7H0.8V3.8H0.7zM0.8,3.7H0.9V3.8H0.8zM1,3.7H1.1V3.8H1zM1.3,3.7H1.4V3.8H1.3zM1.5,3.7H1.6V3.8H1.5zM1.6,3.7H1.7V3.8H1.6zM2,3.7H2.1V3.8H2zM2.1,3.7H2.2V3.8H2.1zM2.3,3.7H2.4V3.8H2.3zM2.4,3.7H2.5V3.8H2.4zM2.7,3.7H2.8V3.8H2.7zM2.9,3.7H3V3.8H2.9zM3,3.7H3.1V3.8H3zM3.3,3.7H3.4V3.8H3.3zM3.4,3.7H3.5V3.8H3.4zM3.5,3.7H3.6V3.8H3.5zM3.7,3.7H3.8V3.8H3.7zM3.8,3.7H3.9V3.8H3.8zM4,3.7H4.1V3.8H4zM0.4,3.8H0.5V3.9H0.4zM0.6,3.8H0.7V3.9H0.6zM0.7,3.8H0.8V3.9H0.7zM0.8,3.8H0.9V3.9H0.8zM1,3.8H1.1V3.9H1zM1.4,3.8H1.5V3.9H1.4zM1.6,3.8H1.7V3.9H1.6zM2,3.8H2.1V3.9H2zM2.2,3.8H2.3V3.9H2.2zM2.4,3.8H2.5V3.9H2.4zM2.7,3.8H2.8V3.9H2.7zM2.8,3.8H2.9V3.9H2.8zM3,3.8H3.1V3.9H3zM3.1,3.8H3.2V3.9H3.1zM3.3,3.8H3.4V3.9H3.3zM3.4,3.8H3.5V3.9H3.4zM3.8,3.8H3.9V3.9H3.8zM0.4,3.9H0.5V4H0.4zM1,3.9H1.1V4H1zM1.3,3.9H1.4V4H1.3zM1.7,3.9H1.8V4H1.7zM1.8,3.9H1.9V4H1.8zM2.1,3.9H2.2V4H2.1zM2.5,3.9H2.6V4H2.5zM2.6,3.9H2.7V4H2.6zM2.8,3.9H2.9V4H2.8zM3.3,3.9H3.4V4H3.3zM3.6,3.9H3.7V4H3.6zM3.8,3.9H3.9V4H3.8zM3.9,3.9H4V4H3.9zM0.4,4H0.5V4.1H0.4zM0.5,4H0.6V4.1H0.5zM0.6,4H0.7V4.1H0.6zM0.7,4H0.8V4.1H0.7zM0.8,4H0.9V4.1H0.8zM0.9,4H1V4.1H0.9zM1,4H1.1V4.1H1zM1.2,4H1.3V4.1H1.2zM1.4,4H1.5V4.1H1.4zM1.5,4H1.6V4.1H1.5zM1.6,4H1.7V4.1H1.6zM1.7,4H1.8V4.1H1.7zM1.9,4H2V4.1H1.9zM2.1,4H2.2V4.1H2.1zM2.3,4H2.4V4.1H2.3zM2.4,4H2.5V4.1H2.4zM2.5,4H2.6V4.1H2.5zM2.7,4H2.8V4.1H2.7zM2.8,4H2.9V4.1H2.8zM3.1,4H3.2V4.1H3.1zM3.4,4H3.5V4.1H3.4zM3.5,4H3.6V4.1H3.5zM3.8,4H3.9V4.1H3.8zM3.9,4H4V4.1H3.9zM4,4H4.1V4.1H4z" fill="#000" />
+            </svg>
           </div>
         </div>
         <div class="notes">
@@ -1595,7 +1768,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 32 -->
+      <!-- ================================================================ 35 -->
       <section class="slide" data-title="Two deployments">
         <h2>This is <em>two</em> deployments, not one</h2>
         <div class="cols">
@@ -1642,7 +1815,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 33 -->
+      <!-- ================================================================ 36 -->
       <section class="slide" data-title="Deploy the agent · Render">
         <h2>1 · The agent, on Render — five steps</h2>
         <ol>
@@ -1698,7 +1871,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 34 -->
+      <!-- ================================================================ 37 -->
       <section class="slide" data-title="Deploy the agent · FastAPI Cloud">
         <h2>Same agent, second host: FastAPI Cloud</h2>
         <div class="flow mt-s" style="margin-bottom: 20px">
@@ -1747,7 +1920,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 35 -->
+      <!-- ================================================================ 38 -->
       <section class="slide" data-title="Deploy the client · Vercel">
         <h2>2 · The client, on Vercel — two fields</h2>
         <ol>
@@ -1799,7 +1972,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 36 -->
+      <!-- ================================================================ 39 -->
       <section class="slide">
         <h2>What will go wrong</h2>
         <table>
@@ -1862,7 +2035,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 37 -->
+      <!-- ================================================================ 40 -->
       <section class="slide oneidea center" data-title="THE ONE IDEA, restated">
         <div class="kicker">The whole session in one line</div>
         <p class="lead">
@@ -1886,7 +2059,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 38 -->
+      <!-- ================================================================ 41 -->
       <section class="slide" id="sec-wrap">
         <h2>Before you submit — photograph this</h2>
         <ul class="checklist">
@@ -1931,7 +2104,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 39 -->
+      <!-- ================================================================ 42 -->
       <section class="slide title">
         <div class="kicker">Thank you</div>
         <h1>Now go ship it.</h1>
