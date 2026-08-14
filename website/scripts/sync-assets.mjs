@@ -7,13 +7,15 @@
  *                         standalone by double-clicking it, which matters as a
  *                         presentation fallback when a network or a build is
  *                         misbehaving.
- *   ../client/index.html  is the demo client, deployed to /demo/.
+ *   ../client/            is the demo client — a Vite + React app. This script
+ *                         builds it and publishes the output to /demo/.
  *
  * This script derives the site's copies from those, so there is never a second
  * version to keep in sync. It runs before every build and dev server.
  */
 import { mkdir, readFile, writeFile, rm, cp } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -55,10 +57,25 @@ async function syncDeck() {
 }
 
 async function syncDemo() {
+  // The client is published under the site's base path, at /<base>/demo/, so
+  // its assets have to be built with that prefix. Astro's own base comes from
+  // the same env var (see astro.config.mjs) — keep the two in step.
+  const base = process.env.BASE_PATH ?? "/deploying-agentic-ai-apps-workshop";
+  const demoBase = path.posix.join("/", base, "demo") + "/";
+
+  const run = (...args) =>
+    execFileSync("npm", args, { cwd: CLIENT, stdio: "inherit" });
+
+  // CI checks out a bare tree; a laptop usually already has node_modules.
+  if (!existsSync(path.join(CLIENT, "node_modules"))) run("ci");
+  run("run", "build", "--", `--base=${demoBase}`);
+
   const dest = path.join(site, "public", "demo");
   await rm(dest, { recursive: true, force: true });
-  await cp(CLIENT, dest, { recursive: true });
-  console.log("  demo:  client/ -> public/demo/");
+  await mkdir(path.dirname(dest), { recursive: true });
+  await cp(path.join(CLIENT, "dist"), dest, { recursive: true });
+
+  console.log(`  demo:  client/ -> public/demo/  (base ${demoBase})`);
 }
 
 await syncDeck();

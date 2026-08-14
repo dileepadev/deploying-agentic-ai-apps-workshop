@@ -7,7 +7,8 @@ name: Deploy workshop site to GitHub Pages
 #
 # The deck and the client are single-sourced from slides/ and client/ at the repo
 # root; website/scripts/sync-assets.mjs pulls them in at build time, so there is
-# never a second copy to keep in sync.
+# never a second copy to keep in sync. That script also runs the client's own
+# Vite build (client/ is a React app), so no separate step for it is needed here.
 #
 # Enable once at: Settings → Pages → Source: GitHub Actions
 
@@ -43,7 +44,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: website/package-lock.json
+          cache-dependency-path: |
+            website/package-lock.json
+            client/package-lock.json
 
       - run: npm ci
 
@@ -56,6 +59,8 @@ jobs:
 
       - name: Sanity-check the build
         # Fail here rather than shipping a site with a missing deck.
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}
         run: |
           set -euo pipefail
           for page in index.html slides/index.html demo/index.html deck/index.html; do
@@ -64,6 +69,11 @@ jobs:
           slides=$(grep -o '<section[^>]*class="[^"]*slide' _site/slides/index.html | wc -l)
           echo "deck contains $slides slides"
           test "$slides" -ge 30 || { echo "deck looks truncated"; exit 1; }
+          # The client is a built bundle now, not a hand-written file. If the
+          # --base flag ever stops matching the Pages sub-path, the page loads
+          # blank with a 404 on its own JS — catch that here instead of live.
+          grep -q "$BASE_PATH/demo/assets/" _site/demo/index.html \
+            || { echo "demo client built with the wrong base path"; exit 1; }
 
       - uses: actions/configure-pages@v6
 
