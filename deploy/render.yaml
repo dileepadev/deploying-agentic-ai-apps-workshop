@@ -12,6 +12,11 @@ services:
     plan: free
     region: singapore # pick the region closest to your users
 
+    # The uv project (pyproject.toml, uv.lock, the app code itself) lives in
+    # app/, not the repo root. rootDir makes every path below — including
+    # buildCommand and startCommand — resolve relative to it.
+    rootDir: app
+
     # Render's Python image doesn't ship uv, so install it first.
     # `--frozen` means "use uv.lock exactly, don't re-resolve" — your deploy
     # gets the versions you tested, not whatever is newest today.
@@ -22,7 +27,7 @@ services:
     # shows up as a maddening "port scan timeout" in the deploy logs. It also
     # reads the PORT env var automatically, but we pass --port explicitly so
     # the command is self-explanatory without reading Render's docs.
-    startCommand: uv run fastapi run app/main.py --port $PORT
+    startCommand: uv run fastapi run main.py --port $PORT
 
     healthCheckPath: /health
 
