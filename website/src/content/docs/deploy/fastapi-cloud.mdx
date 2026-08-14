@@ -2,13 +2,16 @@
 title: FastAPI Cloud
 ---
 
-import { Aside } from "@astrojs/starlight/components";
+import { Aside, TabItem, Tabs } from "@astrojs/starlight/components";
 
-A hosting platform from the FastAPI team. Deploying is genuinely one command,
-which makes it a lovely thing to try — with caveats worth reading first.
+A hosting platform from the FastAPI team, and the **second agent host** in this
+workshop. It deploys straight from a GitHub repo with no config file at all —
+or with one command from your terminal, if you prefer.
+
+This project has been deployed to it end to end. The steps below are the ones
+that actually worked.
 
 <Aside type="note" title="Status as of August 2026">
-
 
 FastAPI Cloud is in **public beta**. Its own pricing page notes that
 usage-based compute billing is "still being built" and not yet invoiced.
@@ -18,43 +21,42 @@ before relying on it.
 
 </Aside>
 
-## Why we cover it but don't recommend it as primary
+## Two ways to do it
 
-**In its favour:** a free Hobby plan with no credit card, `fastapi deploy` as
-the entire workflow, automatic HTTPS, scale-to-zero, secrets management, and a
-custom domain. For the framework this project is already built on, that's a very
-short path from code to URL.
+<Tabs>
+<TabItem label="From GitHub (no CLI)">
 
-**Why Render stays primary here:**
+The whole thing happens in the browser. Nothing to install.
 
-1. **It's a beta.** Terms and limits can change. This workshop has to keep
-   working for people following it months later.
-2. **Hobby is 0.1 vCPU / 512 MB.** Thin for a Python process that also hosts an
-   MCP server.
-3. **Scale-to-zero and background tasks are an unknown combination.** This
-   entire project depends on work continuing *after* the HTTP response is sent.
-   We could not find published documentation on how Hobby's scale-to-zero treats
-   an in-flight background task once the request completes.
+1. Push your repo to GitHub.
+2. FastAPI Cloud dashboard → your team → **create a new app from GitHub**.
+3. **Connect your GitHub account**, and install or update the FastAPI Cloud
+   GitHub App when it asks.
+4. Pick your GitHub account or organisation, then the repository.
+5. **Root Directory** → `app`
 
-That third point is the real one. On platforms where CPU is allocated per
-request, a background task can be throttled to near-zero the moment the response
-goes out — which would break `/runs` specifically while leaving `/runs/naive`
-looking fine. That's the exact opposite of what this workshop teaches.
+    This is the one setting that matters for this repo. `pyproject.toml`,
+    `uv.lock` and `main.py` all live in `app/`, not at the repo root — leave
+    this blank and the build has no project to install.
 
-<Aside type="tip" title="Test it before you trust it">
+6. **Create App.**
 
+It connects the repo and deploys the latest commit on your default branch.
+From then on, **every push to that branch deploys automatically.**
 
-Deploy, run one job through `POST /runs`, and check whether the `steps` rows
-keep appearing after the initial response. If they stall and then resume on
-your next poll, CPU is being allocated per request — workable, but you should
-know.
+Already have an app and want to attach a repo to it? App → **Settings** →
+**Source Repository** → **Connect**, then the same account/repo picker.
 
-Then write down what you actually measured. Measured numbers beat
-documentation.
+<Aside type="note" title="Default branch only">
+
+Only pushes to the **default branch** trigger a deploy. Pushes to other
+branches are ignored, and pull-request preview deployments aren't supported
+today — so don't wait for a preview URL that isn't coming.
 
 </Aside>
 
-## Deploying
+</TabItem>
+<TabItem label="From the CLI">
 
 Run all of this from `app/` — that's where the uv project (and the FastAPI
 app it deploys) lives.
@@ -66,10 +68,47 @@ uv run fastapi login          # opens a browser
 uv run fastapi deploy         # detects the app, builds, deploys
 ```
 
-That's the whole thing. It detects your FastAPI app, packages it, and gives you
-a URL.
+That's the whole thing. It detects your FastAPI app, packages it, and gives
+you a URL.
 
-### Environment variables
+Because you run it from `app/`, there's no root-directory setting to get
+wrong — the CLI uploads the directory you're standing in.
+
+</TabItem>
+</Tabs>
+
+Both routes land in the same place, and you can mix them: create the app from
+the CLI and connect a repo later, or create it from GitHub and use the CLI for
+logs.
+
+## Environment variables
+
+Same principle as everywhere else: **secrets in the platform, never the repo.**
+You need the same three as on Render — `LLM_API_KEY`, `SUPABASE_URL`,
+`SUPABASE_SECRET_KEY` — plus `ALLOWED_ORIGINS` once you have a deployed client.
+
+<Tabs>
+<TabItem label="In the dashboard">
+
+1. App details → **Environment Variables** in the sidebar
+2. **Add Environment Variable**
+3. Name and value
+4. Toggle **Secret** on for anything sensitive — the three above all qualify
+5. **Save and Redeploy** (or **Save Only**, which applies on the next deploy)
+
+<Aside type="caution" title="The Secret toggle is one-way, at creation time">
+
+A variable can only be marked as a secret **when you create it**. You can't
+convert a plain variable into a secret afterwards, or the other way round —
+you delete it and add it again.
+
+So decide before you click Add: if a value would hurt you in a screenshot,
+turn Secret on now.
+
+</Aside>
+
+</TabItem>
+<TabItem label="From the CLI">
 
 ```bash
 uv run fastapi env set LLM_API_KEY
@@ -77,13 +116,44 @@ uv run fastapi env set SUPABASE_URL
 uv run fastapi env set SUPABASE_SECRET_KEY
 ```
 
-Same principle as everywhere else: **secrets in the platform, never the repo.**
+</TabItem>
+</Tabs>
 
-### Logs
+## Why it works without a Dockerfile
+
+Worth knowing, because it explains why there's no config file in this repo for
+it:
+
+- **It prefers uv.** If you have a `pyproject.toml` and a `uv.lock`, it installs
+  from the lock file — the same "exact versions you tested" guarantee
+  `uv sync --frozen` gives you on Render. Failing that it looks for
+  `pylock.toml`, then `requirements.txt`.
+- **It reads `.python-version`.** `app/.python-version` is already there, so you
+  get the interpreter this project was built against rather than whatever is
+  newest.
+- **It detects the app.** If `fastapi dev` works locally, it works there — no
+  start command to write, no `--host 0.0.0.0` to remember.
+
+That's three of this project's existing files doing deployment work for free.
+It's also why `deploy/render.yaml` is the *only* platform-specific file in the
+repo.
+
+## Logs
+
+<Tabs>
+<TabItem label="In the dashboard">
+
+App → **Logs** tab, updating in real time.
+
+</TabItem>
+<TabItem label="From the CLI">
 
 ```bash
 uv run fastapi logs
 ```
+
+</TabItem>
+</Tabs>
 
 Hobby keeps 1 day of log and metric retention, which is enough to debug a
 deploy and not enough to investigate something from last week.
@@ -94,14 +164,55 @@ deploy and not enough to investigate something from last week.
 |---|---|
 | Price | $0 |
 | Apps | 3 |
-| Resources | 0.1 vCPU / 512 MB, shared |
+| Resources | 0.1 vCPU / 512 MB shared, bursting to 0.5 |
 | Autoscale | up to 3 replicas |
-| Scale-to-zero | yes |
+| Scale-to-zero | yes, on by default |
 | Custom domain | 1 |
 | Log retention | 1 day |
 | Credit card | not required |
 
 Re-verify these before depending on them — beta pricing pages move.
+
+## Why Render is still the primary path
+
+**In its favour:** a free Hobby plan with no credit card, GitHub deploys *and* a
+one-command CLI, automatic HTTPS, zero-downtime rollouts, scale-to-zero, secrets
+management, and a custom domain. For the framework this project is already built
+on, that's a very short path from code to URL.
+
+**But:**
+
+1. **It's a beta.** Terms and limits can change. This workshop has to keep
+   working for people following it months later.
+2. **Hobby is 0.1 vCPU / 512 MB.** Thin for a Python process that also hosts an
+   MCP server, even with the burst headroom.
+3. **Scale-to-zero and background tasks deserve a measurement.** This entire
+   project depends on work continuing *after* the HTTP response is sent, and
+   scale-to-zero is on by default. We could not find published documentation on
+   how Hobby's scale-to-zero treats an in-flight background task once the
+   request completes.
+
+That third point is the one to actually check. On platforms where CPU is
+allocated per request, a background task can be throttled the moment the
+response goes out — which would break `/runs` specifically while leaving
+`/runs/naive` looking fine. That's the exact opposite of what this workshop
+teaches.
+
+<Aside type="tip" title="Test it before you trust it">
+
+Deploy, run one job through `POST /runs`, close the tab, wait a minute, then
+`GET /runs/{id}`.
+
+**Steps kept appearing while nobody was polling?** Your process gets CPU
+between requests — the architecture works.
+
+**Steps stalled and resumed on your next poll?** CPU is being allocated per
+request. Workable, but now you know why it'll break rather than finding out
+at the worst moment.
+
+Then write down what you measured. Measured numbers beat documentation.
+
+</Aside>
 
 ## Deploying to both
 
@@ -116,7 +227,12 @@ There's real value in shipping the same app twice:
 Nothing in this project is platform-specific. The only file that mentions Render
 is `deploy/render.yaml`, and FastAPI Cloud needs no config file at all.
 
+Remember to add **both** backend URLs wherever you're switching between them —
+the client's **Backend URL** field takes either one, and each frontend origin
+has to appear in `ALLOWED_ORIGINS` on **both** backends.
+
 ## See also
 
-- [Render](../render/) — the primary path
+- [Render](../render/) — the primary agent host
+- [Deploy the client](../client/) — Vercel and GitHub Pages
 - [Troubleshooting](../troubleshooting/)

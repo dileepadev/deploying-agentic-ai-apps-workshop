@@ -21,6 +21,21 @@ Get a public URL, with your secrets in the platform rather than the repo.
 It's the point of the whole workshop. Everything before this was so that this
 step works.
 
+## Two deployments, in order
+
+You're shipping two separate things, and they are not the same job:
+
+| | What | Where | Hard because |
+|---|---|---|---|
+| **1 · The agent** | `app/` — a running FastAPI process | [Render](#1--deploy-the-agent) or [FastAPI Cloud](#1--deploy-the-agent) | it must keep working *after* the response is sent |
+| **2 · The client** | `client/` — a folder of static files | [Vercel](#2--deploy-the-client-bonus) or GitHub Pages | it isn't. Only CORS is |
+
+Do them in that order — the client needs a backend URL to point at.
+
+Both hosts in each row are free, need no credit card, and deploy from GitHub.
+Pick one from each row to finish the step; do the second one afterwards if you
+want to see how little of this is platform-specific.
+
 ## Before you push
 
 <Aside type="danger" title="Check this before your first commit, not after">
@@ -36,7 +51,10 @@ doesn't help.
 
 </Aside>
 
-## Deploy to Render
+## 1 · Deploy the agent
+
+<Tabs>
+<TabItem label="Render">
 
 1. Push your repo to GitHub.
 2. Render → **New +** → **Web Service** → connect your repo.
@@ -68,13 +86,52 @@ Infrastructure in version control beats settings in someone's memory.
 
 </Aside>
 
-Bind to `0.0.0.0`, **not** `127.0.0.1`. Binding to localhost inside a container
-means nothing outside can reach you — it shows up as a maddening "port scan
-timeout" in the deploy logs.
+Bind to `0.0.0.0`, **not** `127.0.0.1`. Binding to localhost inside a
+container means nothing outside can reach you — it shows up as a maddening
+"port scan timeout" in the deploy logs.
 
-[Full Render guide →](../../deploy/render/) ·
-[FastAPI Cloud as an alternative →](../../deploy/fastapi-cloud/) ·
-[Other hosts →](../../deploy/alternatives/)
+[Full Render guide →](../../deploy/render/)
+
+</TabItem>
+<TabItem label="FastAPI Cloud">
+
+Built by the FastAPI team, and it needs **no config file and no start
+command** — it reads `app/pyproject.toml`, `app/uv.lock` and
+`app/.python-version` and works the rest out.
+
+1. Push your repo to GitHub.
+2. FastAPI Cloud dashboard → your team → **create a new app from GitHub**.
+3. Connect GitHub, install the FastAPI Cloud GitHub App, pick your repo.
+4. **Root Directory** → `app`
+5. **Create App.** It deploys the latest commit on your default branch, and
+   every push after that.
+6. **Environment Variables** → add `LLM_API_KEY`, `SUPABASE_URL`,
+   `SUPABASE_SECRET_KEY`, each with the **Secret** toggle on → **Save and
+   Redeploy**.
+
+Prefer the terminal? From `app/`:
+
+```bash
+uv add --dev fastapi-cloud-cli
+uv run fastapi login
+uv run fastapi deploy
+```
+
+<Aside type="caution" title="It's a public beta">
+
+Lovely to use, but the terms and limits can still move, and Hobby is
+0.1 vCPU / 512 MB with scale-to-zero on by default. Fine for this. Read
+[the caveats](../../deploy/fastapi-cloud/#why-render-is-still-the-primary-path)
+before you put something that matters on it.
+
+</Aside>
+
+[Full FastAPI Cloud guide →](../../deploy/fastapi-cloud/)
+
+</TabItem>
+</Tabs>
+
+[Other hosts, and how to judge one →](../../deploy/alternatives/)
 
 ## Prove it's alive
 
@@ -89,39 +146,49 @@ curl https://<your-service>.onrender.com/health
 Two seconds, and it tells you the deploy worked *and* the database is reachable.
 This is why that endpoint exists.
 
-## Point the client at it
+## Point your local client at it
 
-From `client/`, run `npm run dev`, paste your Render URL into **Backend URL**, and
+Before deploying anything else, prove the backend works from a browser. From
+`client/`, run `npm run dev`, paste your deployed URL into **Backend URL**, and
 ask a question. The field is saved in your browser, so you can flip between your
 local backend and the deployed one without touching any config.
 
 If you get **"Failed to fetch"**, that's CORS — and now it's real, because your
-page and your API are genuinely different origins. Set `ALLOWED_ORIGINS` on
-Render to your frontend's origin (no trailing slash) and redeploy:
+page and your API are genuinely different origins. Set `ALLOWED_ORIGINS` on the
+backend to your frontend's origin (no trailing slash) and redeploy:
 
 ```text
-ALLOWED_ORIGINS=https://your-client.vercel.app,http://localhost:5173
+ALLOWED_ORIGINS=http://localhost:5173
 ```
 
-## Deploy the client too
+## 2 · Deploy the client (bonus)
+
+Strictly speaking you're already done — the agent is live and that's the
+workshop. But a backend nobody can click on is a hard thing to show anyone, and
+this part takes two minutes.
 
 The client builds to a folder of static files, so any static host will do.
 
 <Tabs>
 <TabItem label="Vercel">
 
-`client/vercel.json` is already configured. Import the repo at
-[vercel.com/new](https://vercel.com/new), then:
+`client/vercel.json` is already written, so there are exactly two fields to
+fill in. Import the repo at [vercel.com/new](https://vercel.com/new), then:
 
-1. **Root Directory** → `client`
-2. **Environment Variables** → `VITE_API_URL` = your Render URL
-3. Deploy
+1. **Root Directory** → `client` — the Vite project, not the repo root
+2. **Environment Variables** → `VITE_API_URL` = your deployed backend URL
+3. **Deploy**
+
+Every push to your default branch redeploys, and pull requests get preview
+URLs.
 
 </TabItem>
 <TabItem label="GitHub Pages">
 
-Already handled — the workshop site's build compiles the client and publishes it
-at `/demo/`. Push to `main` and the Actions workflow does the rest.
+Already handled — the workshop site's build compiles the client and publishes
+it at `/demo/`. Push to `main` and the Actions workflow does the rest.
+
+Enable it once at **Settings → Pages → Source: GitHub Actions**.
 
 </TabItem>
 </Tabs>
@@ -132,10 +199,19 @@ Vite inlines every `VITE_*` variable into the JavaScript bundle at build time.
 Anyone can read them with view-source. A backend URL is fine there. A Gemini or
 Supabase key is not — those stay in `app/.env`, on the server, forever.
 
+It also means changing that variable does nothing until you **redeploy** —
+there's no running process to pick up a new value, only a compiler to re-run.
+
 </Aside>
 
-Then add your new frontend origin to `ALLOWED_ORIGINS` on Render, because you've
-just created a third one.
+Then add your new frontend origin to `ALLOWED_ORIGINS` on the backend, because
+you've just created another one:
+
+```text
+ALLOWED_ORIGINS=https://your-client.vercel.app,http://localhost:5173
+```
+
+[Full client deployment guide →](../../deploy/client/)
 
 ## Connect your MCP server to Claude
 
@@ -157,10 +233,10 @@ the MCP server is mounted inside the app you just shipped.
 
 ## Expected result
 
-- `https://<your-service>.onrender.com/health` returns `ok: true`
-- `https://<your-service>.onrender.com/docs` gives you interactive API docs
-- The web client runs the agent against your deployed backend
-- Steps stream in live, from the internet
+- **The agent:** `https://<your-backend>/health` returns `ok: true`, and
+  `/docs` gives you interactive API docs
+- **The client:** a public page that runs the agent against that backend
+- Steps stream in live, from the internet, on someone else's laptop
 - Your MCP tools work inside Claude
 
 **You're done.** That URL is yours to send to anyone.
@@ -218,12 +294,17 @@ More in [Troubleshooting →](../../deploy/troubleshooting/)
 ## Where to go next
 
 - **Keep it alive.** [The free-tier survival guide](../../deploy/troubleshooting/#keeping-a-free-stack-alive)
-- **Make the background work durable.** `BackgroundTasks` loses runs on restart;
-  [durable execution](../../deploy/alternatives/#dbos) checkpoints each step so a
-  crash resumes instead of restarting.
-- **Ship it somewhere else too.** [Other hosts](../../deploy/alternatives/) —
-  the same app on a second platform, and how to tell whether a host can run this
-  architecture at all.
+- **Ship the agent to the other host too.** Render *and*
+  [FastAPI Cloud](../../deploy/fastapi-cloud/), from the same repo, with no code
+  change. You get a fallback URL for demo day, and comparing two build logs
+  teaches you what's actually your code's fault.
+- **Handle lost runs.** `BackgroundTasks` lives inside your server process, so a
+  restart mid-run leaves the row stuck at `running` forever. The cheap fix is to
+  mark runs stale after 10 minutes so the UI stops spinning; the real fix is a
+  task queue with a separate worker —
+  [the upgrade path](../../learn/deployment-problem/#the-catch-nobody-mentions).
+- **Look at other hosts.** [Other hosts](../../deploy/alternatives/) — how to
+  tell whether a platform can run this architecture at all.
 - **Change the model.** [Model providers](../../stack/llm-providers/) — Cerebras,
   OpenRouter, Groq, all free, all three environment variables away.
 - **Add RAG.** The `memories` table and pgvector are already there —

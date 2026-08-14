@@ -17,9 +17,14 @@ otherwise-better options, and it's the right constraint for learning.
 | Tool protocol | [FastMCP](#fastmcp) | Makes the tools usable outside our app |
 | Model | [Gemini](#gemini) | A no-card free tier — see [the alternatives](llm-providers/) |
 | Database | [Supabase](#supabase) | Free Postgres with pgvector built in |
-| Backend host | [Render](#render) | Free web services, deploys from GitHub |
+| Agent host | [Render](#render) | Free web services, deploys from GitHub |
 | Frontend | [Vite + React](#vite--react) | The frontend most people will port this into |
-| Frontend host | [GitHub Pages](#github-pages) | Free, and makes CORS real |
+| Client host | [GitHub Pages](#github-pages) | Free, and makes CORS real |
+
+The last two host rows are defaults, not requirements — the agent also runs on
+[FastAPI Cloud](../deploy/fastapi-cloud/) and the client also runs on
+[Vercel](../deploy/client/#vercel), both free and both verified with this
+project. See [Deploy](../deploy/) for the two tracks side by side.
 
 ---
 
@@ -193,8 +198,10 @@ The small CPU slice is the surprise. It's fine here because agent work is
 I/O-bound — you're waiting on the model anyway — but it would be bad for
 anything CPU-heavy.
 
-See also [FastAPI Cloud](../deploy/fastapi-cloud/), which we cover as a second
-deployment path.
+See also [FastAPI Cloud](../deploy/fastapi-cloud/), the second agent host —
+built by the FastAPI team, deploys from GitHub with no config file at all, and
+free without a card. Shipping the same app to both is the cheapest deployment
+lesson available.
 
 ---
 
@@ -228,6 +235,10 @@ than theoretical.
 slides, and the demo client together.
 
 **What it costs.** Nothing, with soft bandwidth limits you won't hit.
+
+[Vercel](../deploy/client/#vercel) is the other free option for this layer, and
+it's worth doing as well as rather than instead of — two frontend origins makes
+`ALLOWED_ORIGINS` concrete in a way one never does.
 
 ---
 

@@ -4,10 +4,15 @@ title: Other hosts
 
 import { Aside } from "@astrojs/starlight/components";
 
-[Render](../render/) is the primary path and [FastAPI Cloud](../fastapi-cloud/)
-is the second. Neither is special — nothing in `app/` knows which platform it's
-on. This page is the wider map, and more usefully, the **one test** to apply to
+This page is about **[Track 1](../#track-1--deploy-the-agent) — hosting the
+agent.** [Render](../render/) is the primary path and
+[FastAPI Cloud](../fastapi-cloud/) is the second; both are verified end to end
+with this project. Neither is special — nothing in `app/` knows which platform
+it's on. This is the wider map, and more usefully, the **one test** to apply to
 any host you're considering.
+
+Looking for somewhere to put the frontend instead? That's
+[Track 2 — Deploy the client](../client/), and the answer is much shorter.
 
 ## The question that decides everything
 
@@ -16,27 +21,26 @@ This project depends on work continuing *after* the HTTP response is sent. So:
 > **Does my code still get CPU after it has returned a response?**
 
 Ask that first. Free tiers, cold starts, and dashboards are details; this one
-answers whether the architecture works at all. Hosts fall into three families.
+answers whether the architecture works at all. Backend hosts fall into two
+families.
 
 | Family | Examples | `BackgroundTasks` works? |
 |---|---|---|
-| **Long-lived process** — a container that stays running between requests | Render, Fly.io, Koyeb, Railway, Hugging Face Spaces | **Yes.** This is what the workshop assumes |
+| **Long-lived process** — a container that stays running between requests | Render, FastAPI Cloud, Fly.io, Koyeb, Railway, Hugging Face Spaces | **Yes.** This is what the workshop assumes |
 | **Request-scoped serverless** — CPU is allocated per invocation | Vercel, Netlify, AWS Lambda | **No, not safely.** Background work is capped by the function timeout |
-| **Durable execution** — steps are checkpointed to a database | DBOS, Temporal, Prefect | **Better than yes.** A crash *resumes* instead of restarting |
 
-Everything below is a variation on those three rows.
+Everything below is a variation on those two rows.
 
 ## The map
 
 | Platform | Family | Free tier | Good for |
 |---|---|---|---|
 | [Render](../render/) | long-lived | yes, no card | **Primary.** Boring in the right way |
-| [FastAPI Cloud](../fastapi-cloud/) | long-lived (scale-to-zero) | yes, no card | One-command deploys; public beta |
+| [FastAPI Cloud](../fastapi-cloud/) | long-lived (scale-to-zero) | yes, no card | **Second target.** GitHub or one command; public beta |
 | [Hugging Face Spaces](#hugging-face-spaces) | long-lived | yes, no card | A public, shareable demo with a URL people trust |
 | [Fly.io](https://fly.io) / [Koyeb](https://www.koyeb.com) / [Railway](https://railway.com) | long-lived | varies, often needs a card | Regions, persistent disks, growing past free |
 | [Vercel](#vercel) | request-scoped | yes, no card | **The frontend.** See the caveat |
-| [DBOS](#dbos) | durable | library is open source | Making the background work survive a restart |
-| [GitHub Pages](../../stack/#github-pages) | static | yes | The built `client/`, and making CORS real |
+| [GitHub Pages](../client/#github-pages) | static | yes | The built `client/`, and making CORS real |
 
 <Aside type="tip" title="Deploy to two, on purpose">
 
@@ -103,7 +107,7 @@ works, so nothing changes.
 
 This section is about running the **backend** on Vercel. Running the *client*
 there is a different question with a boring answer — it's a static bundle, it
-works fine, see [step 8](../../build/08-deploy/#deploy-the-client-too).
+works fine, and it's the [bonus track](../client/#vercel).
 
 Vercel runs FastAPI, and it will happily serve `/health`, `/docs`, and
 `/runs/naive`. The problem is the endpoint the whole workshop is about.
@@ -133,79 +137,20 @@ we started with, because it looks like it's working.
 <Aside type="caution" title="What to actually do with Vercel">
 
 
-Use it for the **frontend** — it's excellent at that, and it makes CORS just as
-real as GitHub Pages does.
+Use it for the **frontend** — it's excellent at that, it takes two minutes, and
+it makes CORS just as real as GitHub Pages does.
+[Deploy the client →](../client/#vercel)
 
 If you want the backend there too, the honest version is: keep the API on
-Vercel and move the agent to something that isn't request-scoped — a queue with
-a worker, or [DBOS](#dbos) below. Don't try to smuggle a 40-second loop into a
-serverless function.
+Vercel and move the agent somewhere that isn't request-scoped — a queue with a
+separate worker process, at minimum. Don't try to smuggle a 40-second loop into
+a serverless function.
 
 </Aside>
 
 This is the modern version of the old "Vercel has a 10-second limit" line. The
 number was raised and will move again. The *shape* of the constraint — CPU is
 rented per request — is the part that doesn't expire.
-
-## DBOS
-
-DBOS isn't a host in the same sense as the others. It's a **durable execution**
-library: you annotate your functions, and it checkpoints each step to Postgres.
-When the process dies mid-run, the workflow resumes from the last completed step
-instead of starting over.
-
-That directly fixes the limitation named in
-[Why deployment is hard](../../learn/deployment-problem/#the-catch-nobody-mentions):
-`BackgroundTasks` lives inside your server process, so a deploy or a free-tier
-recycle loses the run forever.
-
-The shape of the change:
-
-```python
-from dbos import DBOS
-
-@DBOS.step()
-async def search_wikipedia(query: str) -> list[str]:
-    ...
-
-@DBOS.workflow()
-async def run_agent(run_id: str, query: str) -> None:
-    ...
-
-@app.post("/runs", status_code=202)
-async def create_run(body: RunRequest):
-    run_id = await db.create_run(body.query)
-    DBOS.start_workflow(run_agent, run_id, body.query)   # was: background.add_task(...)
-    return {"run_id": run_id, "status": "queued"}
-```
-
-`DBOS.start_workflow` is a near drop-in for `background.add_task` — it returns
-immediately with a handle, and guarantees the workflow runs to completion. Your
-endpoints, your polling client, and your `steps` table are untouched.
-
-**What it needs that this project doesn't have yet:** a Postgres connection
-string. We talk to Supabase over its REST API precisely to avoid drivers, but
-DBOS needs a real connection for its checkpoints. Supabase gives you one under
-**Connect**, so it's an added variable rather than a new service:
-
-```python
-DBOS(config={"name": "research-agent", "system_database_url": os.environ["DBOS_SYSTEM_DATABASE_URL"]})
-DBOS.launch()
-```
-
-You can self-host this on Render — the library is open source and runs anywhere
-your app runs. DBOS also offers its own hosted cloud with a free tier; check
-[their pricing](https://www.dbos.dev/pricing) for current terms before depending
-on it.
-
-<Aside type="note" title="Pydantic AI supports this directly">
-
-
-Pydantic AI integrates with DBOS, Temporal, and Prefect for durable agent runs,
-so you don't hand-roll the checkpointing. Worth reading once you've felt the
-problem — which is the right order.
-
-</Aside>
 
 ## Test it yourself, in two minutes
 
@@ -233,7 +178,8 @@ Write down what you measured. A number you observed beats a paragraph you read.
 
 ## See also
 
-- [Render](../render/) — the primary path
-- [FastAPI Cloud](../fastapi-cloud/) — the second target
+- [Render](../render/) — the primary agent host
+- [FastAPI Cloud](../fastapi-cloud/) — the second agent host
+- [Deploy the client](../client/) — the other track: Vercel and GitHub Pages
 - [Model providers](../../stack/llm-providers/) — the same idea, for the LLM
 - [Troubleshooting](../troubleshooting/) — when it doesn't work

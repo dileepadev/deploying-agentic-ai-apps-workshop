@@ -1,0 +1,184 @@
+---
+title: Deploy the client
+---
+
+import { Aside, TabItem, Tabs } from "@astrojs/starlight/components";
+
+The second of the [two deployments](../#there-are-two-deployments-not-one), and
+the easy one. The client is a Vite + React app that builds to a folder of static
+files:
+
+```bash
+cd client
+npm run build            # -> dist/
+```
+
+Anything that can serve a folder can host it. There is no server, no runtime, no
+process to keep alive — which is precisely why nothing here can break the
+accept-and-poll architecture. The bytes are the same on every host.
+
+<Aside type="caution" title="Deploy the agent first">
+
+The client is useless without a backend URL to point at, and the CORS step
+below needs your frontend's origin to exist. Do
+[Track 1](../#track-1--deploy-the-agent) first, keep the backend URL handy,
+then come here.
+
+</Aside>
+
+## Vercel
+
+The bonus track. About two minutes, no CLI, no credit card — and
+[`client/vercel.json`](https://github.com/dileepadev/deploying-agentic-ai-apps-workshop/blob/main/client/vercel.json)
+is already written, so there's nothing to configure beyond two fields.
+
+1. Push your repo to GitHub.
+2. Go to [vercel.com/new](https://vercel.com/new) and **import** the repository.
+3. **Root Directory** → `client`
+
+    This is the field people miss. The Vite project lives in `client/`, not at
+    the repo root — point Vercel at the root and the build finds no
+    `package.json` and fails.
+
+4. **Environment Variables** → add `VITE_API_URL`, set to your backend URL
+   (no trailing slash).
+5. **Deploy.**
+
+Vercel detects Vite on its own, but `client/vercel.json` states it explicitly
+anyway:
+
+```json title="client/vercel.json"
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+The `rewrites` line is the one worth understanding: it serves `index.html` for
+every path, so deep links and refreshes don't 404. That's the standard
+single-page-app rule, and it's why a SPA needs *any* config on a static host at
+all.
+
+Every push to your default branch redeploys, and pull requests get their own
+preview URL.
+
+<Aside type="note" title="Changing VITE_API_URL needs a rebuild, not a restart">
+
+Vite inlines `VITE_*` variables into the JavaScript **at build time**. There is
+no running process to pick up a new value, so editing the variable in Vercel's
+dashboard changes nothing until you **redeploy**.
+
+This surprises people who are used to backend environment variables. On Render
+you set a variable and redeploy to restart the process; here you redeploy to
+re-run the compiler.
+
+</Aside>
+
+## GitHub Pages
+
+Already done for you. The workshop site's build compiles the client and
+publishes it alongside the docs and the slides:
+
+```text
+https://<user>.github.io/<repo>/          the website
+https://<user>.github.io/<repo>/slides/   the deck
+https://<user>.github.io/<repo>/demo/     the client
+```
+
+Push to `main` and [`.github/workflows/deploy-pages.yml`](https://github.com/dileepadev/deploying-agentic-ai-apps-workshop/blob/main/.github/workflows/deploy-pages.yml)
+does the rest. Enable it once at **Settings → Pages → Source: GitHub Actions**.
+
+The only subtlety is the sub-path. A project page lives under `/<repo>/`, not at
+a domain root, so the client is built with a `--base` flag —
+`website/scripts/sync-assets.mjs` passes it. That's also why `vite.config.ts`
+deliberately doesn't hard-code `base`:
+
+```ts title="client/vite.config.ts"
+// Vercel / any root domain   npm run build                  -> base "/"
+// GitHub Pages sub-path      npm run build -- --base=/x/demo/
+```
+
+Hard-coding it would break whichever of the two deployments didn't match.
+
+## Then fix CORS, because it will break
+
+Deploying the client creates a **new origin**, and your backend doesn't know
+about it yet. The symptom is **"Failed to fetch"** in the browser console, with
+a working `curl` — which is the tell, because CORS is a browser rule, not a
+server error.
+
+Set `ALLOWED_ORIGINS` on the **backend** to a comma-separated list of every
+origin that should be allowed, then **redeploy the backend**:
+
+```text
+ALLOWED_ORIGINS=https://your-client.vercel.app,https://your-user.github.io,http://localhost:5173
+```
+
+Three things people get wrong here:
+
+- **No trailing slash.** `https://x.vercel.app/` doesn't match
+  `https://x.vercel.app`.
+- **Origin, not URL.** Scheme and host only — no `/demo/` path on the end, even
+  though that's where the page lives.
+- **It's on the backend, and it needs a redeploy.** Setting the variable doesn't
+  restart the service.
+
+<Aside type="tip" title="Two frontends means two entries on every backend">
+
+If you deployed the agent to both Render and FastAPI Cloud, and the client to
+both Vercel and Pages, that's a 2×2: **each** backend needs **both** frontend
+origins in its `ALLOWED_ORIGINS`.
+
+Tedious, and worth doing once by hand. It's the clearest demonstration you'll
+get that an origin is a specific scheme + host, not "my site".
+
+</Aside>
+
+## Pointing the client at a different backend
+
+You don't have to redeploy to switch backends. The UI has a **Backend URL**
+field, saved in your browser, which overrides `VITE_API_URL`:
+
+- localhost during the build
+- your Render URL after you deploy
+- your FastAPI Cloud URL when you want to compare the two
+
+Pasted URLs get their trailing slashes stripped (`normaliseBaseUrl` in
+`client/src/api.ts`) because `//runs` 404s on some hosts.
+
+## `VITE_API_URL` is not a secret
+
+Worth repeating, because it's the one genuinely dangerous thing on this page:
+
+> **Vite inlines every `VITE_*` variable into the JavaScript bundle at build
+> time.** Anyone can read them with view-source.
+
+A backend URL is fine there. A Gemini key or a Supabase key is not — those live
+in `app/.env` and in your **backend** host's environment panel, on the server,
+forever. The whole reason the backend exists as a separate thing is that the
+browser never holds a key.
+
+## Other static hosts
+
+Netlify, Cloudflare Pages, Render's own static sites, GitLab Pages, an S3
+bucket — all fine, all free at this scale. Every one of them needs the same
+three things:
+
+| | |
+|---|---|
+| Build command | `npm run build` |
+| Output directory | `dist` |
+| SPA rewrite | all paths → `/index.html` |
+
+Plus `VITE_API_URL` at build time, and the resulting origin added to
+`ALLOWED_ORIGINS` on the backend. That's the entire contract.
+
+## See also
+
+- [Render](../render/) — the primary agent host
+- [FastAPI Cloud](../fastapi-cloud/) — the second agent host
+- [Other hosts · Vercel](../alternatives/#vercel) — why the *backend* doesn't go here
+- [Troubleshooting](../troubleshooting/) — "Failed to fetch" and friends

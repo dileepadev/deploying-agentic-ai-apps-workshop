@@ -101,7 +101,7 @@ cd app && uv run fastmcp dev tools/server.py        # poke the MCP tools in the 
 │       ├── api.ts        the three HTTP calls — the whole backend contract
 │       └── useRun.ts     accept-and-poll as a hook, with cancellation
 ├── database/schema.sql   three tables
-├── deploy/               Render blueprint
+├── deploy/               Render blueprint — the only platform-specific file
 ├── slides/               the deck
 ├── website/              the workshop website + slides route (Astro)
 └── docs/                 run of show, prep, prerequisites, free-tier notes
@@ -114,9 +114,9 @@ cd app && uv run fastmcp dev tools/server.py        # poke the MCP tools in the 
 | Model | Google Gemini via AI Studio | yes, no card |
 | Agent | Pydantic AI | open source |
 | Tools | FastMCP, mounted at `/mcp` | open source |
-| Backend | FastAPI on Render | yes |
+| Backend | FastAPI on Render or FastAPI Cloud | yes, no card |
 | Database | Supabase Postgres + pgvector | yes |
-| Frontend | Vite + React on GitHub Pages or Vercel | yes |
+| Frontend | Vite + React on Vercel or GitHub Pages | yes |
 
 Total cost: **nothing**, and no credit card at any point.
 
@@ -124,11 +124,38 @@ Those are defaults, not requirements. The model is three environment variables
 ([other free providers](website/src/content/docs/stack/llm-providers.mdx) — Cerebras,
 OpenRouter, Groq) and the host is a deploy setting
 ([other free hosts](website/src/content/docs/deploy/alternatives.mdx) — Hugging Face
-Spaces, Vercel, DBOS). Pick whichever you like; the architecture doesn't change.
+Spaces, Fly.io, Koyeb). Pick whichever you like; the architecture doesn't change.
 
 Free tiers have real trade-offs — your server sleeps, your database pauses, your
 model rate-limits. The [Stack section](website/src/content/docs/stack/index.mdx) is honest
 about all of them.
+
+## Deploying: two tracks, both free
+
+"Deploying the app" is really two separate jobs, and only the first one is hard.
+
+**1 · The agent** — `app/`, a FastAPI process that must keep working *after* it
+has sent the response. This is what the workshop is about.
+
+| Host | Deploy by | Notes |
+| --- | --- | --- |
+| [Render](website/src/content/docs/deploy/render.mdx) | connecting a GitHub repo | **Primary.** `deploy/render.yaml` has the settings; Root Directory `app` |
+| [FastAPI Cloud](website/src/content/docs/deploy/fastapi-cloud.mdx) | GitHub in the dashboard, or `fastapi deploy` | **Second target.** No config file — it reads `pyproject.toml`, `uv.lock` and `.python-version`. Public beta |
+
+**2 · The client** *(bonus)* — `client/`, a folder of static files. Nothing here
+can break the architecture, because nothing here runs your code.
+
+| Host | Deploy by | Notes |
+| --- | --- | --- |
+| [Vercel](website/src/content/docs/deploy/client.mdx) | importing the repo | Root Directory `client`, `VITE_API_URL` = your backend URL. `client/vercel.json` is already written |
+| [GitHub Pages](website/src/content/docs/deploy/client.mdx) | pushing to `main` | Already wired up — published at `/demo/` alongside this site |
+
+Do the agent first; the client needs a backend URL to point at. Then wire the
+two together — `VITE_API_URL` on the client, `ALLOWED_ORIGINS` on the backend —
+and redeploy both. That last step is where "Failed to fetch" comes from, every
+single time.
+
+Full walkthroughs: [Deploy](website/src/content/docs/deploy/index.mdx).
 
 ## Bonus: your tools in Claude
 

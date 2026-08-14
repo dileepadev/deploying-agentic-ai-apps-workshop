@@ -86,8 +86,9 @@ export default defineConfig({
           label: "Deploy",
           items: [
             { label: "Overview", slug: "deploy" },
-            { label: "Render", slug: "deploy/render" },
-            { label: "FastAPI Cloud", slug: "deploy/fastapi-cloud" },
+            { label: "Agent · Render", slug: "deploy/render" },
+            { label: "Agent · FastAPI Cloud", slug: "deploy/fastapi-cloud" },
+            { label: "Client · Vercel & Pages", slug: "deploy/client" },
             { label: "Other hosts", slug: "deploy/alternatives" },
             { label: "Troubleshooting", slug: "deploy/troubleshooting" },
           ],

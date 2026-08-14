@@ -85,6 +85,20 @@ This room has people who have never deployed anything. Non-negotiables:
 8. **Show CORS** by pointing the GitHub Pages client at the Render URL. Cross-origin
    for real, so the fix is real.
 
+### If you have time left (and only then)
+
+Both of these are **cuttable**. The lesson has landed by step 8; these two just show
+how little of it is tied to one platform.
+
+- **The same agent on FastAPI Cloud (2 min).** Create app from GitHub, Root Directory
+  `app`, done — no build command, no start command, no config file. The point to say
+  out loud is *the app is the portable part*: one file in the whole repo mentions
+  Render, and this host needs none.
+- **The client on Vercel (2 min).** Import the repo, Root Directory `client`,
+  `VITE_API_URL`, deploy. Then add the new origin to `ALLOWED_ORIGINS` on the backend
+  and watch "Failed to fetch" turn into a working page. **This is the best CORS demo
+  in the session** — the failure and the fix, live, in ninety seconds.
+
 ### When it fails
 
 **Do not debug live for more than 90 seconds.** Say:
@@ -137,12 +151,14 @@ steps. Mention it, don't demo it.
 
 ## If you're running behind — cut in this order
 
-1. **pgvector live demo** → slides only; the code stays in the repo as a bonus
-2. **Durable execution / DBOS** → one slide as "the upgrade path", no demo
-3. **SSE** → one line: *"polling today, SSE when you outgrow it"*
-4. **Reading `useRun.ts` line by line** → show the running client instead, and say
+1. **The second agent host and the Vercel client** → the two optional slides, no demo
+2. **pgvector live demo** → slides only; the code stays in the repo as a bonus
+3. **The `BackgroundTasks` limitation** → one slide as "the upgrade path", no demo
+4. **SSE** → one line: *"polling today, SSE when you outgrow it"*
+5. **Reading `useRun.ts` line by line** → show the running client instead, and say
    the one sentence that matters: the fetch calls are identical in any framework,
    the cancellation around them is what people get wrong
 
-**Never cut:** the accept-and-poll pattern, the live deploy, the step-logging UI, and
-the environment-security slide. Those four *are* the session.
+**Never cut:** the accept-and-poll pattern, the live deploy of the **agent**, the
+step-logging UI, and the environment-security slide. Those four *are* the session —
+note that the client deploy is not on that list, because it's a bonus.

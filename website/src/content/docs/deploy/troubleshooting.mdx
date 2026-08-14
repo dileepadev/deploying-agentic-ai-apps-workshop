@@ -188,7 +188,7 @@ from "can the browser talk to it".
 
 </details>
 
-## Deployment
+## Deploying the agent
 
 <details>
 <summary>Build fails: <code>uv: command not found</code></summary>
@@ -197,15 +197,23 @@ from "can the browser talk to it".
 Render's Python image doesn't ship uv. The build command needs
 `pip install uv && uv sync --frozen`.
 
+Not an issue on FastAPI Cloud, which uses uv itself when it finds a
+`pyproject.toml` and `uv.lock`.
+
 </details>
 
 <details>
 <summary>Build fails: no <code>pyproject.toml</code> found</summary>
 
 
-The uv project lives in `app/`, not the repo root. Check the service's Root
-Directory is set to `app` — `deploy/render.yaml` handles this for you via
-`rootDir: app`, but a service created by hand needs the field set explicitly.
+The uv project lives in `app/`, not the repo root, and both hosts default to
+the repo root.
+
+- **Render** — Root Directory → `app`. `deploy/render.yaml` handles this via
+  `rootDir: app`, but a service created by hand needs the field set.
+- **FastAPI Cloud** — Root Directory → `app` when you create the app, or
+  App → **Settings** → **Application Directory** → `app` → **Update**
+  afterwards.
 
 </details>
 
@@ -224,6 +232,75 @@ port-scan timeout.
 
 
 Free-tier cold start. Not a bug. Hit `/health` ten minutes before a demo.
+Render spins down after ~15 minutes idle; FastAPI Cloud's Hobby plan scales
+to zero by default.
+
+</details>
+
+<details>
+<summary>Pushed to GitHub, but FastAPI Cloud didn't deploy</summary>
+
+
+Only pushes to the **default branch** trigger a deploy — pushes to other
+branches are ignored, and pull-request preview deployments aren't supported.
+Merge to your default branch, or deploy that commit with
+`uv run fastapi deploy`.
+
+</details>
+
+<details>
+<summary>A FastAPI Cloud variable should have been a secret, and wasn't</summary>
+
+
+Variables can only be marked **Secret** at creation. You can't convert one
+afterwards in either direction — delete it and add it again with the toggle
+on.
+
+And if a key was visible in a screenshot or a shared screen, rotate it. That's
+cheaper than wondering.
+
+</details>
+
+## Deploying the client
+
+<details>
+<summary>Vercel build fails: no <code>package.json</code></summary>
+
+
+Root Directory → `client`. The Vite project isn't at the repo root, and this
+is the single most commonly missed field in the whole deploy.
+
+</details>
+
+<details>
+<summary>Changed <code>VITE_API_URL</code>, the site still calls the old backend</summary>
+
+
+Vite inlines `VITE_*` variables into the bundle at **build time**, so there's
+no running process to pick up the new value. **Redeploy.**
+
+If it's still wrong after a redeploy, check the **Backend URL** field in the
+UI — it's saved in your browser and overrides the built-in value. Clear it.
+
+</details>
+
+<details>
+<summary>The deployed client 404s on refresh or a deep link</summary>
+
+
+The static host is looking for a real file at that path. A single-page app
+needs every path rewritten to `/index.html` — that's what the `rewrites` block
+in `client/vercel.json` does. On another host, find its equivalent.
+
+</details>
+
+<details>
+<summary>The GitHub Pages copy loads blank, with 404s on the JS</summary>
+
+
+A project page is served from `/<repo>/`, not the domain root, so the client
+has to be built with a matching `--base`. `website/scripts/sync-assets.mjs`
+passes it — if you built by hand, pass it too.
 
 </details>
 
@@ -236,7 +313,7 @@ The four things that will silently break a project you're not touching daily:
 | What | When | Fix |
 |---|---|---|
 | Supabase pauses | ~1 week idle | Ping weekly, or resume manually |
-| Render spins down | ~15 min idle | Hit `/health` before demos |
+| The agent host sleeps | Render ~15 min idle; FastAPI Cloud scales to zero | Hit `/health` before demos |
 | Gemini key rate-limits | per minute / day | Your own key; retry with backoff |
 | Disk is wiped | every restart | Never write to disk; use Postgres |
 

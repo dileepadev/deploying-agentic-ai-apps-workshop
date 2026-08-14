@@ -54,6 +54,17 @@ that may not exist yet.
 - [ ] **Screen-record the entire deploy, start to finish.** If the live deploy fails,
       you cut to this and narrate over it. **Do not skip this step.**
 
+**If you're showing the bonus slides** (agent on FastAPI Cloud, client on Vercel),
+deploy both the day before as well — they're quick, but not quick enough to improvise:
+
+- [ ] FastAPI Cloud: create the app from GitHub, Root Directory `app`, add the three
+      variables with **Secret** on. Then **measure it**: run a job, close the tab, wait
+      a minute, poll. Did the steps keep appearing under scale-to-zero? Write down what
+      you saw — that's the honest answer when someone asks.
+- [ ] Vercel: import the repo, Root Directory `client`, `VITE_API_URL`. Leave the new
+      origin **out** of `ALLOWED_ORIGINS` until you're on stage, so you can demo the
+      "Failed to fetch" failure and the fix live.
+
 **Screenshots to capture while you're in there** (the slides have placeholders for
 each — see `slides/assets/img/README.md`):
 

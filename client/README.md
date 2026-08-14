@@ -53,13 +53,27 @@ The build is a folder of static files, so anything that serves static files work
 npm run build            # -> dist/
 ```
 
-**Vercel** — [`vercel.json`](vercel.json) is already set up. Point a Vercel project at
-this directory, set `VITE_API_URL` to your Render URL in the project's environment
-variables, and deploy.
+**Vercel** — [`vercel.json`](vercel.json) is already set up, so there are two fields
+to fill in. Import the repo at <https://vercel.com/new>, then:
+
+1. **Root Directory** → `client` — the Vite project isn't at the repo root, and this
+   is the field people miss
+2. **Environment Variables** → `VITE_API_URL` = your backend URL, no trailing slash
+3. Deploy
+
+Pushes to the default branch redeploy; pull requests get preview URLs.
 
 **GitHub Pages** — happens automatically as part of the workshop site build; see
 [`../website/scripts/sync-assets.mjs`](../website/scripts/sync-assets.mjs). It's
 published at `/<repo>/demo/`, which is why the build takes a `--base` flag.
 
-Either way, add the deployed origin to `ALLOWED_ORIGINS` on the backend or the browser
-will block the calls. That's CORS, and it's the first thing that goes wrong.
+Either way, add the deployed origin to `ALLOWED_ORIGINS` on the backend **and
+redeploy the backend**, or the browser will block the calls. That's CORS, and it's the
+first thing that goes wrong. Origin only — scheme and host, no trailing slash, no path.
+
+> **`VITE_API_URL` is baked in at build time**, so changing it in a host's dashboard
+> does nothing until you redeploy. There's no process to restart, only a compiler to
+> re-run.
+
+Full walkthrough, including the other static hosts:
+[`../website/src/content/docs/deploy/client.mdx`](../website/src/content/docs/deploy/client.mdx).

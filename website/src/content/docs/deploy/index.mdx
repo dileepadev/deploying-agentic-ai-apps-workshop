@@ -1,20 +1,78 @@
 ---
 title: Deploy
 ---
+
+import { Aside, Card, CardGrid } from "@astrojs/starlight/components";
+
 Reference material for getting this — or your own project — onto the internet
 for free.
 
 If you're working through the tutorial, [Build step 8](../build/08-deploy/) is
 the guided version. These pages are what you come back to afterwards.
 
-| Page | For |
-|---|---|
-| [Render](render/) | The primary path. Free web services, deploys from GitHub. |
-| [FastAPI Cloud](fastapi-cloud/) | One command, but read the caveats first. |
-| [Other hosts](alternatives/) | Hugging Face Spaces, Vercel, DBOS — and how to judge any host. |
-| [Troubleshooting](troubleshooting/) | When it doesn't work, and keeping it alive. |
+## There are two deployments, not one
 
-## The three rules
+This is the thing that trips people up. "Deploying the app" is actually two
+separate jobs, on two different kinds of host, with two completely different
+sets of constraints.
+
+<CardGrid>
+  <Card title="1 · The agent" icon="rocket">
+    The FastAPI backend in `app/`. A **running process** that has to keep
+    working after the HTTP response is sent. This is what the workshop is
+    about. [Deploy the agent →](#track-1--deploy-the-agent)
+  </Card>
+  <Card title="2 · The client" icon="laptop">
+    The Vite + React app in `client/`. A folder of **static files**. Any static
+    host will do, and none of them can break the architecture.
+    [Deploy the client →](#track-2--deploy-the-client)
+  </Card>
+</CardGrid>
+
+Both are free. Only the first one is hard, and the reason is worth saying out
+loud: a static host just serves bytes, so it cannot get the agent wrong. A
+backend host decides whether your code still gets CPU after it has replied —
+and that decision is the entire workshop.
+
+---
+
+## Track 1 · Deploy the agent
+
+Two free hosts, both verified end to end with this exact project. Deploy to
+one, then deploy to the other — shipping the same app twice is one of the
+cheapest ways to learn what's your code's fault and what's the platform's.
+
+| Host | Free tier | Deploy by | Our take |
+|---|---|---|---|
+| **[Render](render/)** | yes, no card | connecting a GitHub repo | **Primary.** Stable, known free-tier behaviour |
+| **[FastAPI Cloud](fastapi-cloud/)** | yes, no card | GitHub in the dashboard, or `fastapi deploy` | **Second target.** Lovely ergonomics; public beta |
+
+| | Render | FastAPI Cloud |
+|---|---|---|
+| Free tier | yes, no card | Hobby, no card |
+| Sleeps when idle | ~15 min | scale-to-zero |
+| Cold start | ~1 minute | seconds |
+| Deploy method | push to GitHub | push to GitHub, **or** one CLI command |
+| Resources | small shared slice | 0.1 vCPU / 512 MB, bursts to 0.5 |
+| Config in the repo | `deploy/render.yaml` | none needed |
+| Maturity | stable | **public beta** |
+
+We recommend Render as the main path because its free-tier behaviour is
+well-documented and hasn't moved. FastAPI Cloud is genuinely nice — it's built
+by the FastAPI team, it deploys from GitHub with no config file at all, and it
+takes about two minutes — but read [the caveats](fastapi-cloud/) before you put
+anything you care about on a public beta.
+
+Neither is the only option, and you shouldn't pick a host from a table of free
+tiers anyway. [Other hosts](alternatives/) covers Hugging Face Spaces, Fly.io
+and the rest, and gives you the one question that actually decides whether a
+platform can run this architecture: **does your code still get CPU after it has
+returned a response?**
+
+### The three rules
+
+These apply to every backend host, and between them they cause most first-deploy
+failures.
 
 **1. Secrets live in the platform, never the repo.**
 
@@ -32,28 +90,65 @@ It shows up as "port scan timeout" in the deploy log and wastes an afternoon.
 Two seconds to answer "is it alive, and can it reach the database?". It's also
 how you wake a sleeping free-tier service before a demo.
 
-## Which platform?
+---
 
-| | Render | FastAPI Cloud | GitHub Pages |
+## Track 2 · Deploy the client
+
+The client builds to a folder of static files, so this part is genuinely easy.
+The only thing that goes wrong is CORS, and it goes wrong every single time.
+
+| Host | Free tier | Deploy by | Our take |
 |---|---|---|---|
-| What for | the backend | the backend | the frontend |
-| Free tier | yes, no card | yes, no card | yes |
-| Sleeps when idle | ~15 min | scale-to-zero | n/a |
-| Deploy method | push to GitHub | `fastapi deploy` | push to GitHub |
-| Maturity | stable | **public beta** | stable |
-| Our recommendation | **primary** | worth trying, second | frontend |
+| **[Vercel](client/#vercel)** | yes, no card | importing the repo in the dashboard | **Bonus track.** Two minutes, `client/vercel.json` is already written |
+| **[GitHub Pages](client/#github-pages)** | yes | pushing to `main` | Already wired up — the site build publishes the client at `/demo/` |
 
-We recommend Render as the main path because it's stable, well-documented, and
-its free-tier behaviour is known. FastAPI Cloud is genuinely nice and worth
-deploying to as a second target — comparing two platforms *is* deployment
-learning — but read [the caveats](fastapi-cloud/) before relying on it for
-something that matters.
+Full walkthrough: **[Deploy the client →](client/)**
 
-Neither is the only option, and you shouldn't pick a host from a table of free
-tiers anyway. [Other hosts](alternatives/) covers Hugging Face Spaces, Vercel,
-Fly.io and DBOS, and gives you the one question that actually decides whether a
-platform can run this architecture: **does your code still get CPU after it has
-returned a response?**
+<Aside type="caution" title="Every new frontend origin is a new CORS entry">
+
+Deploying the client creates a **new origin**. The backend will refuse it until
+you add it to `ALLOWED_ORIGINS` and redeploy. That's not a bug you introduced —
+it's the browser's same-origin policy becoming real the moment your frontend
+and your API stop sharing a hostname.
+
+</Aside>
+
+<Aside type="tip" title="Vercel is great for the client and wrong for the agent">
+
+The same platform sits in both tracks for a reason. Vercel is excellent at
+serving static files, and its functions are **request-scoped** — CPU is rented
+per invocation. That's fine for a bundle of JavaScript and fatal for a
+40-second agent loop. [The long version](alternatives/#vercel).
+
+</Aside>
+
+---
+
+## Putting the two together
+
+Once both are live you have three origins in play — your backend, your client,
+and localhost — and they have to be told about each other:
+
+```text
+client on Vercel  ──fetch──▶  agent on Render
+   VITE_API_URL                 ALLOWED_ORIGINS
+   = the Render URL             = the Vercel origin
+```
+
+Two variables, pointing at each other. `VITE_API_URL` tells the client where the
+API is; `ALLOWED_ORIGINS` tells the API which pages are allowed to call it. Get
+one wrong and you get "Failed to fetch" with no useful error — see
+[Troubleshooting](troubleshooting/).
+
+## Every page here
+
+| Page | For |
+|---|---|
+| [Render](render/) | The primary agent host. Free web services, deploys from GitHub. |
+| [FastAPI Cloud](fastapi-cloud/) | The second agent host. GitHub or one command — read the caveats first. |
+| [Deploy the client](client/) | Vercel and GitHub Pages, plus making CORS work. |
+| [Other hosts](alternatives/) | Hugging Face Spaces, Fly.io — and how to judge any host. |
+| [Troubleshooting](troubleshooting/) | When it doesn't work, and keeping it alive. |
 
 ## The honest summary
 

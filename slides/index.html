@@ -367,7 +367,7 @@
             <span class="ag-time">58–80</span>
             <span class="ag-what"
               ><b>Let's deploy it</b>
-              <span>Live, to a public URL, for free</span></span
+              <span>The agent first, then the client — live, and free</span></span
             >
             <span class="ag-go">→</span>
           </button>
@@ -1015,26 +1015,28 @@
 
       <!-- ================================================================ 20 -->
       <section class="slide">
-        <h2>The upgrade path: durable execution</h2>
+        <h2>The catch: <code>BackgroundTasks</code> lives in your process</h2>
         <div class="flow mt-s" style="margin-bottom: 20px">
           <span class="node">step 1 ✓</span><span class="arrow">→</span>
           <span class="node">step 2 ✓</span><span class="arrow">→</span>
-          <span class="node warn">💥 crash</span><span class="arrow">→</span>
-          <span class="node accent">resume at step 3</span>
+          <span class="node warn">💥 restart</span><span class="arrow">→</span>
+          <span class="node warn">stuck at <code>running</code></span>
         </div>
         <p>
-          Libraries like <strong>DBOS</strong> checkpoint each step to Postgres.
-          When the process dies, the run <em>resumes</em> instead of restarting
-          from zero.
+          A deploy, a crash, or a free-tier recycle takes the job with it. The
+          row sits at <code>running</code> forever.
         </p>
         <p class="mt-s">
-          It's an open-source library — <code>pip install dbos</code> — so it
-          runs on a free host against your existing free Postgres.
+          <strong>Cheap fix:</strong> mark runs stale after 10 minutes, so the
+          UI stops spinning and says something honest.<br />
+          <strong>Real fix:</strong> a task queue with a separate worker
+          process — the jobs stop living inside the web service.
         </p>
         <div class="callout mt">
           <p>
-            Not a day-one requirement. Know it exists for when "we lost a run"
-            stops being acceptable.
+            Either way the architecture is unchanged: accept, return an ID,
+            poll. You're only swapping <em>how the background work is
+            scheduled</em>.
           </p>
         </div>
         <div class="notes">
@@ -1044,8 +1046,8 @@
               <b>Cut entirely if you're behind.</b>
             </li>
             <li>
-              Same family: Temporal, Inngest, Celery + a broker. All solve "the
-              work must survive the process."
+              Be honest that the demo has this limitation — someone will find
+              it, and it lands much better coming from you first.
             </li>
           </ul>
         </div>
@@ -1208,7 +1210,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 24 -->
+      <!-- ================================================================ 23 -->
       <section class="slide divider" id="sec-memory">
         <div class="step-no">03</div>
         <h1>Memory &amp; state</h1>
@@ -1223,7 +1225,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 25 -->
+      <!-- ================================================================ 24 -->
       <section class="slide">
         <h2>Two kinds of memory</h2>
         <div class="cols">
@@ -1271,7 +1273,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 26 -->
+      <!-- ================================================================ 25 -->
       <section class="slide">
         <h2>Two tables, that's it</h2>
         <pre class="sm"><span class="k">create table</span> runs (
@@ -1304,7 +1306,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 27 -->
+      <!-- ================================================================ 26 -->
       <section class="slide">
         <h2>Logging the thought process</h2>
         <div class="cols">
@@ -1342,7 +1344,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 28 -->
+      <!-- ================================================================ 27 -->
       <section class="slide">
         <h2>pgvector in three commands</h2>
         <pre
@@ -1378,7 +1380,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 29 -->
+      <!-- ================================================================ 28 -->
       <section class="slide">
         <h2>The dimension gotcha</h2>
         <div class="callout err">
@@ -1422,7 +1424,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 30 -->
+      <!-- ================================================================ 29 -->
       <section class="slide">
         <h2>
           An agent is an unpredictable user<br />with database credentials
@@ -1482,7 +1484,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 31 -->
+      <!-- ================================================================ 30 -->
       <section class="slide">
         <h2>Give it a door, not a bulldozer</h2>
         <div class="cols">
@@ -1531,7 +1533,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 32 -->
+      <!-- ================================================================ 31 -->
       <section class="slide divider" id="sec-deploy">
         <div class="step-no">04</div>
         <h1>Let's deploy it</h1>
@@ -1570,9 +1572,56 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
+      <!-- ================================================================ 32 -->
+      <section class="slide" data-title="Two deployments">
+        <h2>This is <em>two</em> deployments, not one</h2>
+        <div class="cols">
+          <div class="card good">
+            <span class="tag">1 · The agent</span>
+            <ul>
+              <li><code>app/</code> — a FastAPI process that keeps running</li>
+              <li>Must still get CPU <em>after</em> it replies</li>
+              <li><strong>Render</strong> or <strong>FastAPI Cloud</strong></li>
+            </ul>
+          </div>
+          <div class="card">
+            <span
+              class="tag"
+              style="background: rgba(127, 182, 240, 0.13); color: var(--blue)"
+              >2 · The client</span
+            >
+            <ul>
+              <li><code>client/</code> — a folder of static files</li>
+              <li>No process, nothing to time out</li>
+              <li><strong>Vercel</strong> or <strong>GitHub Pages</strong></li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout mt">
+          <p>
+            All four are free, no credit card. Only the left-hand column is
+            hard — a static host <em>cannot</em> get the agent wrong, because it
+            never runs your code.
+          </p>
+        </div>
+        <div class="notes">
+          <ul>
+            <li>
+              This slide exists because people conflate the two and then can't
+              work out why "deploying" is sometimes trivial and sometimes not.
+            </li>
+            <li>
+              Land the asymmetry: <b>a static host just serves bytes.</b> The
+              whole workshop is about the other column.
+            </li>
+            <li>Agent first — the client needs a backend URL to point at.</li>
+          </ul>
+        </div>
+      </section>
+
       <!-- ================================================================ 33 -->
-      <section class="slide">
-        <h2>Deploy in five steps</h2>
+      <section class="slide" data-title="Deploy the agent · Render">
+        <h2>1 · The agent, on Render — five steps</h2>
         <ol>
           <li>
             <strong>Run <code>schema.sql</code></strong> in the Supabase SQL
@@ -1586,7 +1635,7 @@ LLM_API_KEY=</pre>
             <strong>Render → New Web Service</strong> → connect the repo → root
             <code>app</code>, build
             <code>pip install uv &amp;&amp; uv sync --frozen</code>, start
-            <code>uv run uvicorn main:app --host 0.0.0.0 --port $PORT</code>
+            <code>uv run fastapi run main.py --port $PORT</code>
           </li>
           <li>
             <strong>Add your three environment variables</strong> in Render's
@@ -1614,15 +1663,120 @@ LLM_API_KEY=</pre>
               progress bar in silence.
             </li>
             <li>
-              Explain <code>--host 0.0.0.0</code>: binding to localhost inside a
-              container means nothing outside can reach you. Classic
+              Explain binding to <code>0.0.0.0</code>: binding to localhost
+              inside a container means nothing outside can reach you. Classic
               first-deploy failure.
+            </li>
+            <li>
+              <code>deploy/render.yaml</code> does all of step 3 for you via
+              <b>New + → Blueprint</b>. Mention it, don't demo it.
             </li>
           </ul>
         </div>
       </section>
 
       <!-- ================================================================ 34 -->
+      <section class="slide" data-title="Deploy the agent · FastAPI Cloud">
+        <h2>Same agent, second host: FastAPI Cloud</h2>
+        <div class="flow mt-s" style="margin-bottom: 20px">
+          <span class="node">create app from GitHub</span
+          ><span class="arrow">→</span>
+          <span class="node">root directory <code>app</code></span
+          ><span class="arrow">→</span>
+          <span class="node accent">live URL</span>
+        </div>
+        <p>
+          Built by the FastAPI team. <strong>No config file, no build command,
+          no start command</strong> — it reads <code>pyproject.toml</code>,
+          <code>uv.lock</code> and <code>.python-version</code> and works the
+          rest out.
+        </p>
+        <p class="mt-s">
+          Environment variables go in the dashboard with a <strong>Secret</strong>
+          toggle, then <em>Save and Redeploy</em>. Prefer the terminal?
+          <code>uv run fastapi deploy</code> from <code>app/</code>.
+        </p>
+        <div class="callout mt">
+          <p>
+            <strong>Public beta</strong>, Hobby is 0.1 vCPU / 512&nbsp;MB with
+            scale-to-zero on by default. Deploy to both hosts — nothing in
+            <code>app/</code> knows which one it's on, and you get a fallback
+            URL for demo day.
+          </p>
+        </div>
+        <div class="notes">
+          <ul>
+            <li>
+              <b>Optional slide — cut if you're past 65 minutes.</b> The lesson
+              already landed on the previous slide.
+            </li>
+            <li>
+              The point isn't "here's another host", it's
+              <b>the app is the portable part</b>. One file in the whole repo
+              mentions Render, and FastAPI Cloud needs none.
+            </li>
+            <li>
+              Honest caveat worth saying: scale-to-zero plus background tasks is
+              worth <b>measuring</b> — run a job, close the tab, poll a minute
+              later, see if the steps kept appearing.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ================================================================ 35 -->
+      <section class="slide" data-title="Deploy the client · Vercel">
+        <h2>2 · The client, on Vercel — two fields</h2>
+        <ol>
+          <li>
+            <strong>vercel.com/new</strong> → import the repo
+          </li>
+          <li>
+            <strong>Root Directory</strong> → <code>client</code> — the Vite
+            project, not the repo root
+          </li>
+          <li>
+            <strong><code>VITE_API_URL</code></strong> = your backend URL →
+            Deploy
+          </li>
+        </ol>
+        <p class="mt-s">
+          <code>client/vercel.json</code> is already written, so there is
+          nothing else to configure. GitHub Pages needs even less — it's already
+          in the Actions workflow, published at <code>/demo/</code>.
+        </p>
+        <div class="callout err mt">
+          <p>
+            Now wire the two together, or nothing works:<br />
+            <code>VITE_API_URL</code> → the backend URL &nbsp;·&nbsp;
+            <code>ALLOWED_ORIGINS</code> → the frontend origin.
+            <strong>Both need a redeploy.</strong>
+          </p>
+        </div>
+        <div class="notes">
+          <ul>
+            <li>
+              Frame this as the <b>bonus track</b>: the workshop is done once
+              the agent is live. This just makes it clickable.
+            </li>
+            <li>
+              <b>Root Directory is the field everyone misses.</b> Point at it
+              twice.
+            </li>
+            <li>
+              <code>VITE_*</code> is baked into the bundle at <b>build</b> time
+              — changing it needs a redeploy, and it is
+              <b>never</b> a place for a key.
+            </li>
+            <li>
+              Then set <code>ALLOWED_ORIGINS</code> live and watch "Failed to
+              fetch" turn into a working page. Best CORS demo there is.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ================================================================ 36 -->
       <section class="slide">
         <h2>What will go wrong</h2>
         <table>
@@ -1685,7 +1839,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 35 -->
+      <!-- ================================================================ 37 -->
       <section class="slide oneidea center" data-title="THE ONE IDEA, restated">
         <div class="kicker">The whole session in one line</div>
         <p class="lead">
@@ -1709,7 +1863,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 36 -->
+      <!-- ================================================================ 38 -->
       <section class="slide" id="sec-wrap">
         <h2>Before you submit — photograph this</h2>
         <ul class="checklist">
@@ -1754,7 +1908,7 @@ LLM_API_KEY=</pre>
         </div>
       </section>
 
-      <!-- ================================================================ 37 -->
+      <!-- ================================================================ 39 -->
       <section class="slide title">
         <div class="kicker">Thank you</div>
         <h1>Now go ship it.</h1>

@@ -60,8 +60,8 @@ GET  /runs/abc    →  {status, steps[]}            client polls every 1.5 s
     [See the stack →](stack/)
   </Card>
   <Card title="Deploy" icon="cloud-download">
-    Render, FastAPI Cloud, and keeping a free stack alive.
-    [Deploy it →](deploy/)
+    Two tracks — the agent on Render or FastAPI Cloud, the client on Vercel or
+    GitHub Pages. [Deploy it →](deploy/)
   </Card>
 </CardGrid>
 
@@ -83,10 +83,13 @@ Nothing, and no credit card at any point.
 | Layer | Choice | Free tier |
 |---|---|---|
 | Model | Google Gemini via AI Studio | yes, no card |
-| Backend | FastAPI on Render | yes |
-| Database | Supabase Postgres + pgvector | yes |
-| Frontend | Static HTML on GitHub Pages | yes |
 | Agent tools | Wikipedia API | free, no key |
+| Database | Supabase Postgres + pgvector | yes |
+| **Agent host** | FastAPI on [Render](deploy/render/) or [FastAPI Cloud](deploy/fastapi-cloud/) | yes, no card |
+| **Client host** | Vite + React on [Vercel](deploy/client/#vercel) or [GitHub Pages](deploy/client/#github-pages) | yes |
+
+The last two rows are the [two deployments](deploy/#there-are-two-deployments-not-one)
+this workshop walks you through, and they're free on either host in each row.
 
 Free tiers have real trade-offs — your server sleeps, your database pauses, your
 model rate-limits. [The Stack section](stack/) is honest about all of them,
