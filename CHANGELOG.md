@@ -29,6 +29,9 @@ Changes are organized into the following categories:
   **Settings → API Keys**, and the project URL sits behind **Connect**.
 - `speaker/` moved to `docs/` and reframed as reusable examples rather than notes for
   one specific delivery.
+- `pyproject.toml`, `uv.lock`, `.python-version`, `tests/`, `http/`, `.env`, and
+  `.env.example` moved into `app/`, so the deployed application is a self-contained
+  uv project and the repo root holds no Python tooling.
 
 <!-- e.g., -->
 <!-- Unreleased -->

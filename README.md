@@ -48,17 +48,17 @@ free [Supabase](https://supabase.com) project.
 # 1. install uv (one tool for Python, venvs, and packages)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. install dependencies — exact versions, from uv.lock
-uv sync
+# 2. install dependencies — exact versions, from app/uv.lock
+cd app && uv sync
 
 # 3. your keys
-cp .env.example .env      # then fill in the three values
+cp .env.example .env            # then fill in the three values
 
 # 4. create the tables
 #    paste database/schema.sql into the Supabase SQL editor and run it
 
 # 5. go
-uv run fastapi dev app/main.py
+uv run fastapi dev main.py
 ```
 
 Check <http://localhost:8000/health> — you want `{"ok": true, "database": true}`.
@@ -72,24 +72,25 @@ watch the steps appear.
 ### Other useful commands
 
 ```bash
-uv run --extra dev pytest                    # 17 tests, no keys or network needed
-cd website && npm install && npm run dev     # the workshop website, locally
-uv run python -m app.agent.manual_loop "..." # the agent, no framework, from the CLI
-uv run fastmcp dev app/tools/server.py       # poke the MCP tools in the Inspector
+cd app && uv run --extra dev pytest                # 17 tests, no keys or network needed
+cd website && npm install && npm run dev           # the workshop website, locally
+cd app && uv run python -m agent.manual_loop "..."  # the agent, no framework, from the CLI
+cd app && uv run fastmcp dev tools/server.py        # poke the MCP tools in the Inspector
 ```
 
 ## What's in here
 
 ```text
-├── app/                  the deployed application
+├── app/                  the deployed application — its own uv project
+│   ├── pyproject.toml    dependencies, pinned by app/uv.lock
 │   ├── main.py           the API — /runs vs /runs/naive is the whole lesson
 │   ├── agent/            the agent, plus the same loop written by hand
-│   └── tools/            the tools, and the same tools over MCP
+│   ├── tools/            the tools, and the same tools over MCP
+│   ├── tests/            17 tests that need no API key
+│   └── http/             ready-made requests for driving the API by hand
 ├── client/               the client — one HTML file, no build
 ├── database/schema.sql   three tables
 ├── deploy/               Render blueprint
-├── tests/                17 tests that need no API key
-├── http/                 ready-made requests for driving the API by hand
 ├── slides/               the deck
 ├── website/              the workshop website + slides route (Astro)
 └── docs/                 run of show, prep, prerequisites, free-tier notes

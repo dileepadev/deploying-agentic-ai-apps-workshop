@@ -31,7 +31,7 @@ that may not exist yet.
 | --- | --- |
 | 0:00–0:15 | Prereq message sent. Accounts created. |
 | 0:15–0:30 | Run `database/schema.sql` in the Supabase SQL editor. Confirm `runs` and `steps` exist in the table editor. |
-| 0:30–1:00 | `cp .env.example .env`, fill it in, run `uv run fastapi dev app/main.py`. Hit `/health`. |
+| 0:30–1:00 | `cd app && cp .env.example .env`, fill it in, run `uv run fastapi dev main.py`. Hit `/health`. |
 | 1:00–1:45 | Get **one full agent run** working end to end locally. Watch rows appear in the Supabase `steps` table. |
 | 1:45–2:15 | Open `client/index.html`, point it at `http://localhost:8000`, confirm steps render live. |
 | 2:15–2:45 | Try the naive endpoint (`Naive mode` toggle in the UI). Feel the hang. This is your Timeout Trap material. |
