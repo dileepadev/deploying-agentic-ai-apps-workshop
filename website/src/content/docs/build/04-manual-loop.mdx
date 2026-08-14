@@ -36,12 +36,19 @@ body = {
 if system:
     body["systemInstruction"] = {"parts": [{"text": system}]}
 
-url = f"{BASE_URL}/models/{config.GEMINI_MODEL}:generateContent"
-response = await _client.post(url, json=body)
+url = f"{BASE_URL}/models/{config.LLM_MODEL}:generateContent"
+response = await _get_client().post(url, json=body)
 ```
 
 That's the whole thing. Everything else in `llm.py` is retry logic and pulling
 the text out of the response envelope.
+
+Notice that Gemini's URL shape, its `contents`/`parts` body, and its
+`x-goog-api-key` header are all written out here by hand. That's why this file
+is **Gemini-only** while [the framework version](../05-framework/) swaps
+provider with an environment variable — pointing this one elsewhere would mean
+rewriting the request and the response parsing per vendor. See
+[Model providers](../../stack/llm-providers/).
 
 <Aside type="tip" title="Retries are not optional on a free tier">
 
@@ -146,7 +153,7 @@ an LLM" and "an agent".
 
 
 Model names get retired. Check what's current at
-[https://aistudio.google.com](https://aistudio.google.com) and set `GEMINI_MODEL` in `.env`. The default
+[https://aistudio.google.com](https://aistudio.google.com) and set `LLM_MODEL` in `.env`. The default
 is `gemini-flash-latest`, an alias that shouldn't 404 — if you pinned a
 specific version, that's the likely cause.
 

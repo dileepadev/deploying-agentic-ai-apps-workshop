@@ -85,9 +85,22 @@ Open `.env` (in `app/`, next to `pyproject.toml`) and fill in three values:
 
 | Variable | Where to get it |
 |---|---|
-| `GEMINI_API_KEY` | [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) → *Create API key* |
+| `LLM_API_KEY` | [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) → *Create API key* |
 | `SUPABASE_URL` | Supabase → **Connect** (top of the dashboard) → *Project URL* |
 | `SUPABASE_SECRET_KEY` | Supabase → **Settings → API Keys** → *Secret keys* → starts with `sb_secret_` |
+
+<Aside type="tip" title="Prefer a different model provider?">
+
+
+Gemini is the default because it's the shortest path to a working key, but
+Cerebras, OpenRouter and Groq are all free without a card, and switching is
+three environment variables — no code change.
+
+Follow the workshop on Gemini first — every screenshot and error message
+below assumes it — then see [Model providers](../../stack/llm-providers/) when
+you want to change, or when a rate limit forces the issue.
+
+</Aside>
 
 <Aside type="note" title="If your project only offers `anon` and `service_role`">
 
@@ -161,12 +174,15 @@ You haven't created the tables yet either — that's [step 2](../02-database/).
 </details>
 
 <details>
-<summary><code>RuntimeError: Missing environment variable: GEMINI_API_KEY</code></summary>
+<summary><code>RuntimeError: Missing environment variable: LLM_API_KEY</code></summary>
 
 
 Working as intended — config fails loudly at startup rather than mysteriously
 at request time. Check `.env` exists in `app/` and that there are no quotes
 around the values.
+
+If you're following an older copy of this workshop, the variable used to be
+called `GEMINI_API_KEY`. That name still works.
 
 </details>
 

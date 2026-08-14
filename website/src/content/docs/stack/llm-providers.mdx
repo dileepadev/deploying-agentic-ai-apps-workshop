@@ -1,0 +1,260 @@
+---
+title: Model providers
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+This workshop runs on Gemini via AI Studio because it's the shortest path to a
+working key for a whole room. It is not the only free option, and the day you
+hit a rate limit mid-demo you'll want to know the others.
+
+The good news: **the model is the most replaceable part of this project.** The
+architecture — accept, background, poll — doesn't care who generates the text.
+
+## Switching takes three environment variables
+
+No code change. Set these in `app/.env` locally, or in your host's environment
+panel in production, and redeploy:
+
+```bash
+LLM_PROVIDER=openrouter
+LLM_API_KEY=sk-or-...
+LLM_MODEL=meta-llama/llama-3.3-70b-instruct:free
+```
+
+Then confirm it took:
+
+```bash
+curl https://<your-service>/health
+```
+
+```json
+{"ok": true, "database": true, "provider": "openrouter", "model": "..."}
+```
+
+`/health` reports the provider precisely so you can tell a deployed service is
+using the key you think it is. That's a two-second check that beats reading the
+dashboard.
+
+<Aside type="tip" title="This is the mid-workshop escape hatch">
+
+
+If a free Gemini key rate-limits you in front of a room, you are three
+environment variables and one redeploy away from carrying on. Worth knowing
+*before* it happens.
+
+</Aside>
+
+## The only place that knows
+
+One function builds the model. Everything else — the agent, its tools, the step
+log, the endpoints, the tests — takes it as an argument and never asks where it
+came from.
+
+```python title="app/agent/research.py"
+@cache
+def build_model() -> Model:
+    http_client = httpx.AsyncClient(transport=retrying_transport(), timeout=60.0)
+
+    match config.LLM_PROVIDER:
+        case "google":
+            return GoogleModel(config.LLM_MODEL, provider=GoogleProvider(...))
+        case "cerebras":
+            return OpenAIChatModel(config.LLM_MODEL, provider=CerebrasProvider(...))
+        case "openrouter":
+            return OpenRouterModel(config.LLM_MODEL, provider=OpenRouterProvider(...))
+        case "openai-compatible":
+            return OpenAIChatModel(config.LLM_MODEL, provider=OpenAIProvider(...))
+```
+
+That's the entire cost of being model-agnostic: one `match`, in one function.
+It's why [Pydantic AI](../#pydantic-ai) is in this stack — every branch returns
+something the agent treats identically.
+
+Note that `http_client` is built **once, above the match**, so every provider
+inherits the same [retry transport](#the-retry-transport-is-not-optional). A
+rate limit should pause a run, not end it, no matter who you're pointed at.
+
+## Free options worth knowing
+
+Every one of these gives you a key without a credit card. Limits move constantly,
+so the column that matters is the last one.
+
+| `LLM_PROVIDER` | Provider | Models you get | The catch |
+|---|---|---|---|
+| `google` | [Google AI Studio](https://aistudio.google.com/apikey) | Gemini Flash / Pro | **The default.** Per-minute, per-day *and* per-token limits |
+| `cerebras` | [Cerebras](https://cloud.cerebras.ai) | Open-weight models, very fast | Generous free tier, smaller catalogue |
+| `openrouter` | [OpenRouter](https://openrouter.ai) | One key, hundreds of models | Only some are free; the free ones are heavily throttled |
+| `openai-compatible` | [Groq](https://console.groq.com), [Together](https://api.together.ai), [Mistral](https://console.mistral.ai), … | Whatever that endpoint serves | Needs `LLM_BASE_URL` too. See [below](#anything-openai-compatible) |
+
+<Aside type="caution" title="GitHub Models is gone — and that's the lesson">
+
+
+If you find a tutorial recommending GitHub Models as the easy free option, it
+predates **30 July 2026**, when the service was
+[fully retired](https://docs.github.com/en/github-models). The inference API no
+longer answers, and Pydantic AI has deprecated its provider.
+
+It was a genuinely good recommendation for about a year. This page will go
+stale the same way — which is why every claim here carries a date and a link
+to check it yourself.
+
+</Aside>
+
+<Aside type="tip" title="The list that stays current so you don't have to">
+
+
+[**free-llm-api-resources**](https://github.com/cheahjs/free-llm-api-resources)
+tracks who is giving away what, with current limits, and is updated far more
+often than any workshop page. Start there when the table above has gone stale.
+
+</Aside>
+
+## Settings, provider by provider
+
+### Google AI Studio — the default
+
+```bash
+LLM_PROVIDER=google
+LLM_API_KEY=<from https://aistudio.google.com/apikey>
+LLM_MODEL=gemini-flash-latest
+```
+
+`gemini-flash-latest` is an alias Google keeps pointed at the current free Flash
+model, so it won't 404 on you when a specific version is retired.
+
+### Cerebras
+
+```bash
+LLM_PROVIDER=cerebras
+LLM_API_KEY=<from https://cloud.cerebras.ai>
+LLM_MODEL=<a name from their models page>
+```
+
+### OpenRouter
+
+```bash
+LLM_PROVIDER=openrouter
+LLM_API_KEY=<from https://openrouter.ai/keys>
+LLM_MODEL=<a name from https://openrouter.ai/models?max_price=0>
+```
+
+Free models on OpenRouter usually carry a `:free` suffix, and they're throttled
+harder than the paid ones. Check the list rather than guessing a name.
+
+### Anything OpenAI-compatible
+
+The catch-all, and the reason this project needs no extra dependencies to reach
+most providers. Groq, Together and Mistral all expose an OpenAI-shaped endpoint,
+so a base URL is enough:
+
+```bash
+LLM_PROVIDER=openai-compatible
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_API_KEY=<from https://console.groq.com>
+LLM_MODEL=openai/gpt-oss-120b
+```
+
+Leaving `LLM_BASE_URL` unset here is refused at startup rather than failing
+later as a confusing 404.
+
+<Aside type="note" title="No default model outside Google, on purpose">
+
+
+`LLM_MODEL` is required for every non-Google provider, and the app won't boot
+without it. We could have shipped a default for each — but model catalogues
+change constantly, and a name guessed here in August would silently 404 at you
+in November. Refusing to start and telling you where the list lives is the
+kinder failure.
+
+</Aside>
+
+## Three things people forget when they switch
+
+### The old variable names still work
+
+Earlier versions of this project called these `GEMINI_API_KEY` and
+`GEMINI_MODEL`, and they're in slides, blueprints, and already-deployed
+services. Both spellings still work — but **only when `LLM_PROVIDER` is
+`google`**.
+
+That restriction is deliberate. A leftover `GEMINI_API_KEY` being quietly posted
+to OpenRouter would come back as a baffling `401` instead of an honest "you
+didn't set `LLM_API_KEY`".
+
+### The retry transport is not optional
+
+```python
+http_client = httpx.AsyncClient(transport=retrying_transport(), timeout=60.0)
+```
+
+That's why a rate limit pauses your run instead of killing it, and it matters
+*more* on a tighter free tier, not less. It's built once above the `match` so
+every provider gets it — if you add a fifth branch, pass it along.
+
+### `/health` is how you check
+
+```json
+{"ok": true, "database": true, "provider": "openrouter", "model": "..."}
+```
+
+Environment changes need a redeploy to take effect. If `/health` still reports
+the old provider, the deploy didn't happen — not the config.
+
+<Aside type="caution" title="The hand-written loop is deliberately single-provider">
+
+
+`app/llm.py` talks to Gemini's REST API directly — that's the whole point of
+[step 4](../../build/04-manual-loop/), which shows what a framework is doing
+for you. Its request shape, response envelope, and `x-goog-api-key` header are
+written out by hand.
+
+So it stays Gemini-only, and says so with a clear error if you point it
+elsewhere. Making *it* multi-provider would mean rewriting `generate()` and
+`_extract_text()` per vendor — which would erase the very contrast the file
+exists to draw.
+
+One path swaps for free, the other doesn't. Noticing why is the lesson.
+
+</Aside>
+
+<Aside type="caution" title="The hand-written loop is a different story">
+
+
+`app/llm.py` talks to Gemini's REST API directly — that's the whole point of
+[step 4](../../build/04-manual-loop/), which shows what a framework is doing
+for you.
+
+It has Gemini's request and response shapes baked into it, so pointing it at
+another provider means rewriting `generate()` and `_extract_text()`, not
+changing a line. The framework path in `app/agent/research.py` is the one that
+swaps cheaply. That contrast *is* the lesson.
+
+</Aside>
+
+## What actually limits an agent
+
+Rate limits get quoted as requests per minute, and for a chatbot that's the
+number that matters. For an agent it usually isn't.
+
+An agent resends its whole context on **every** turn — system prompt, tool
+schemas, and the full history so far. Turn 8 is much more expensive than turn 1.
+One run of this research agent is 5–10 calls with a growing payload, so:
+
+> A **tokens-per-minute** budget drains far faster than a **requests-per-minute**
+> budget. Read the TPM number first.
+
+This is why Groq feels magical for chat and can still be the tighter fit here:
+speed per token doesn't help when the budget is counted in tokens. It's also why
+one shared key across a room dies in minutes — **everyone needs their own.**
+
+## The honest summary
+
+> Picking a free model provider is picking which limit you'll hit first. Write
+> the swap so it's one function, keep the retry logic, and you can change your
+> mind in a minute instead of an afternoon.
+
+---
+
+**Next:** [Architecture →](../architecture/) ·
+[Other hosts →](../../deploy/alternatives/)

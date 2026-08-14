@@ -109,6 +109,12 @@ cd app && uv run fastmcp dev tools/server.py        # poke the MCP tools in the 
 
 Total cost: **nothing**, and no credit card at any point.
 
+Those are defaults, not requirements. The model is three environment variables
+([other free providers](website/src/content/docs/stack/llm-providers.mdx) — Cerebras,
+OpenRouter, Groq) and the host is a deploy setting
+([other free hosts](website/src/content/docs/deploy/alternatives.mdx) — Hugging Face
+Spaces, Vercel, DBOS). Pick whichever you like; the architecture doesn't change.
+
 Free tiers have real trade-offs — your server sleeps, your database pauses, your
 model rate-limits. The [Stack section](website/src/content/docs/stack/index.mdx) is honest
 about all of them.

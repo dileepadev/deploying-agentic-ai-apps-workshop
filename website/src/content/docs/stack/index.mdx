@@ -15,7 +15,7 @@ otherwise-better options, and it's the right constraint for learning.
 | API framework | [FastAPI](#fastapi) | Async, typed, free interactive docs |
 | Agent framework | [Pydantic AI](#pydantic-ai) | Feels like FastAPI; not tied to one model vendor |
 | Tool protocol | [FastMCP](#fastmcp) | Makes the tools usable outside our app |
-| Model | [Gemini](#gemini) | The only real no-card free tier |
+| Model | [Gemini](#gemini) | A no-card free tier — see [the alternatives](llm-providers/) |
 | Database | [Supabase](#supabase) | Free Postgres with pgvector built in |
 | Backend host | [Render](#render) | Free web services, deploys from GitHub |
 | Frontend host | [GitHub Pages](#github-pages) | Free, and makes CORS real |
@@ -114,9 +114,13 @@ deliberately didn't use it.
 **What it is.** Google's model family. We use it via **AI Studio**, the
 developer-facing entry point.
 
-**Why we chose it.** It is the only major provider with a genuinely usable free
-tier that doesn't ask for a credit card. For a room full of people who need
-their own keys, that's decisive.
+**Why we chose it.** It has a genuinely usable free tier that doesn't ask for a
+credit card, and a token budget large enough for a loop that resends its context
+every turn. For a room full of people who need their own keys, that's decisive.
+
+It is not the only free option, though — Cerebras, OpenRouter and Groq all hand
+out keys without a card, and switching is three environment variables rather
+than a code change. See [Model providers](llm-providers/).
 
 **Where it is.** `app/agent/research.py` builds the model; `app/config.py` holds
 the key and model name.
@@ -133,7 +137,7 @@ than a useful error. `gemini-flash-latest` is an alias Google keeps pointed
 at the current free Flash model, so the project still works when you come
 back to it in three months.
 
-Pin a specific version in `GEMINI_MODEL` if you'd rather the model stop
+Pin a specific version in `LLM_MODEL` if you'd rather the model stop
 changing under you.
 
 </Aside>

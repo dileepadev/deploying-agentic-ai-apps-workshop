@@ -78,6 +78,7 @@ export default defineConfig({
           label: "Stack",
           items: [
             { label: "The stack", slug: "stack" },
+            { label: "Model providers", slug: "stack/llm-providers" },
             { label: "Architecture", slug: "stack/architecture" },
           ],
         },
