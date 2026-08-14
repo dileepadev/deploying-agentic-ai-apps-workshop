@@ -126,6 +126,22 @@ Three things people get wrong here:
 - **It's on the backend, and it needs a redeploy.** Setting the variable doesn't
   restart the service.
 
+<Aside type="caution" title="An unreachable badge over a working agent is a cold start, not CORS">
+
+The connection strip calls `GET /health` the moment the page loads — which on a
+sleeping free tier is the request that pays for the ~50s wake-up, and the browser
+gives up on it first. Ask a question anyway and it answers, because the service
+is awake by then.
+
+DevTools tells the two apart: a CORS rejection still has a **status code**, and
+a request the browser abandoned has none — just a Request URL and a Referrer
+Policy. Only the first one is an `ALLOWED_ORIGINS` problem.
+
+`useHealth` retries on a widening gap and settles at a 20s beat, so the badge
+catches up on its own rather than staying wrong until you reload.
+
+</Aside>
+
 <Aside type="tip" title="Two frontends means two entries on every backend">
 
 If you deployed the agent to both Render and FastAPI Cloud, and the client to

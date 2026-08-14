@@ -66,7 +66,7 @@ export default function App() {
           {!checking && !health && (
             <>
               <span className="dot down" />
-              unreachable — is it running, and is this page's origin in
+              unreachable, retrying — cold start, or is this page's origin in
               ALLOWED_ORIGINS?
             </>
           )}
