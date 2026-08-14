@@ -11,7 +11,7 @@ Changes are organized into the following categories:
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-08-14
+## [1.0.0] - 2026-08-15
 
 The initial release (#1): a complete, working example of the workshop's one
 idea — never run an agent inside the HTTP request — from the FastAPI backend

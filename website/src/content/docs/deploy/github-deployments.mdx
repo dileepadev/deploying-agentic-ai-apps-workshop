@@ -127,6 +127,9 @@ problem you started with, plus a wasted build.
    Same idea: the app, its URL and its environment variables all stay. The CLI
    deploys to it by app ID.
 
+   Then, in the same settings, **clear the Root Directory** — see the warning
+   below. This is the step that's easy to miss.
+
    </TabItem>
    </Tabs>
 
@@ -134,6 +137,29 @@ problem you started with, plus a wasted build.
    each linking to the live URL.
 
 </Steps>
+
+<Aside type="danger" title="Clear the Root Directory, or the build dies confused">
+
+This is the one that cost real time here. FastAPI Cloud stores a **Root
+Directory** for the app — `app` for this repo — and applies it to whatever
+archive arrives, no matter how it got there.
+
+That's correct for the GitHub integration, which uploads the whole repo and has
+to descend into `app/`. But the CLI uploads **the directory it's standing in**,
+so `cd app && fastapi deploy` sends an archive that's *already* the project. The
+build descends into a nonexistent `app/app/` and `uv sync` fails with:
+
+```text
+error: No such file or directory (os error 2)
+```
+
+Which says nothing at all about root directories.
+
+So once the repo is disconnected and only the CLI deploys, **clear the Root
+Directory**. Vercel has the same setting and the same trap — its workflow avoids
+it by running from the repo root and letting Vercel apply `client` itself.
+
+</Aside>
 
 ## What you give up
 
